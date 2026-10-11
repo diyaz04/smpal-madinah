@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "types": ["node"]
+  },
+  "include": [
+    "scripts/**/*",
+    "src/shared/**/*",
+    "src/server/lib/pbkdf2.ts",
+    "src/server/lib/id.ts"
+  ]
+}

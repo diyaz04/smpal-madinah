@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1791643497661,
+      "tag": "0000_overjoyed_black_widow",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791664893979,
+      "tag": "0001_last_star_brand",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791674387189,
+      "tag": "0002_supreme_black_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791684730953,
+      "tag": "0003_lean_killmonger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791704503422,
+      "tag": "0004_nappy_the_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791704749734,
+      "tag": "0005_flaky_nighthawk",
+      "breakpoints": true
+    }
+  ]
+}

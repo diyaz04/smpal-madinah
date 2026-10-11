@@ -1,0 +1,421 @@
+import type { PermissionAction } from "./constants";
+
+/**
+ * Registry modul seluruh aplikasi (Tahap 1-8). Modul dengan implemented=false
+ * tidak tampil di sidebar tapi tetap muncul di matriks hak akses (Manajemen
+ * Fitur) berlabel "Segera hadir", supaya role bisa disiapkan dari sekarang.
+ *
+ * Saat membangun tahap berikutnya: cukup set implemented=true dan sidebar +
+ * matriks otomatis mengikuti, tanpa mengubah inti RBAC/layout.
+ */
+export interface ModuleDefinition {
+  key: string;
+  nama: string;
+  grup: string;
+  /** nama ikon lucide-react, dipetakan di client/lib/moduleIcons.ts */
+  ikon: string;
+  path: string | null;
+  aksi: PermissionAction[];
+  implemented: boolean;
+  tahap: number;
+}
+
+export const MODULE_GROUPS_ORDER = [
+  "Utama",
+  "Data Master",
+  "Akademik",
+  "Kepegawaian",
+  "Kiosk",
+  "Kesiswaan",
+  "Sarana & Persuratan",
+  "Dashboard",
+  "Pengaturan",
+] as const;
+
+export const MODULES: ModuleDefinition[] = [
+  // Tahap 1
+  {
+    key: "beranda",
+    nama: "Beranda",
+    grup: "Utama",
+    ikon: "Home",
+    path: "/",
+    aksi: ["lihat"],
+    implemented: true,
+    tahap: 1,
+  },
+  {
+    key: "pengaturan_sekolah",
+    nama: "Pengaturan Sekolah",
+    grup: "Pengaturan",
+    ikon: "Settings",
+    path: "/pengaturan/sekolah",
+    aksi: ["lihat", "ubah"],
+    implemented: true,
+    tahap: 1,
+  },
+  {
+    key: "tahun_ajaran",
+    nama: "Tahun Ajaran",
+    grup: "Pengaturan",
+    ikon: "CalendarRange",
+    path: "/pengaturan/tahun-ajaran",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: true,
+    tahap: 1,
+  },
+  {
+    key: "manajemen_pengguna",
+    nama: "Manajemen Pengguna",
+    grup: "Pengaturan",
+    ikon: "Users",
+    path: "/pengaturan/pengguna",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: true,
+    tahap: 1,
+  },
+  {
+    key: "manajemen_fitur",
+    nama: "Manajemen Fitur",
+    grup: "Pengaturan",
+    ikon: "ShieldCheck",
+    path: "/pengaturan/fitur",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: true,
+    tahap: 1,
+  },
+  {
+    key: "log_aktivitas",
+    nama: "Log Aktivitas",
+    grup: "Pengaturan",
+    ikon: "History",
+    path: "/log-aktivitas",
+    aksi: ["lihat", "export"],
+    implemented: true,
+    tahap: 1,
+  },
+  {
+    key: "pemakaian_sistem",
+    nama: "Pemakaian Sistem",
+    grup: "Pengaturan",
+    ikon: "Gauge",
+    path: "/sistem/pemakaian",
+    aksi: ["lihat"],
+    implemented: true,
+    tahap: 1,
+  },
+
+  // Tahap 2 — Data Master
+  {
+    key: "data_siswa",
+    nama: "Siswa",
+    grup: "Data Master",
+    ikon: "GraduationCap",
+    path: "/data-master/siswa",
+    aksi: ["lihat", "tambah", "ubah", "hapus", "export"],
+    implemented: true,
+    tahap: 2,
+  },
+  {
+    key: "data_guru",
+    nama: "Guru",
+    grup: "Data Master",
+    ikon: "UserCog",
+    path: "/data-master/guru",
+    aksi: ["lihat", "tambah", "ubah", "hapus", "export"],
+    implemented: true,
+    tahap: 2,
+  },
+  {
+    key: "data_kelas",
+    nama: "Kelas",
+    grup: "Data Master",
+    ikon: "DoorOpen",
+    path: "/data-master/kelas",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: true,
+    tahap: 2,
+  },
+  {
+    key: "data_mapel",
+    nama: "Mata Pelajaran",
+    grup: "Data Master",
+    ikon: "BookOpen",
+    path: "/data-master/mapel",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: true,
+    tahap: 2,
+  },
+  {
+    key: "pembagian_tugas_mengajar",
+    nama: "Pembagian Tugas Mengajar",
+    grup: "Data Master",
+    ikon: "ClipboardList",
+    path: "/data-master/tugas-mengajar",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: true,
+    tahap: 2,
+  },
+  {
+    key: "jadwal_pelajaran",
+    nama: "Jadwal Pelajaran",
+    grup: "Data Master",
+    ikon: "CalendarClock",
+    path: "/data-master/jadwal",
+    aksi: ["lihat", "ubah", "export"],
+    implemented: true,
+    tahap: 2,
+  },
+  {
+    key: "import_jadwal",
+    nama: "Import Jadwal Excel",
+    grup: "Data Master",
+    ikon: "FileSpreadsheet",
+    path: "/data-master/import-jadwal",
+    aksi: ["lihat", "tambah"],
+    implemented: true,
+    tahap: 2,
+  },
+  {
+    key: "kenaikan_kelas",
+    nama: "Kenaikan Kelas & Kelulusan",
+    grup: "Data Master",
+    ikon: "ArrowUpCircle",
+    path: "/data-master/kenaikan-kelas",
+    aksi: ["lihat", "tambah"],
+    implemented: true,
+    tahap: 2,
+  },
+
+  // Tahap 3 — Agenda & Absensi
+  {
+    key: "agenda_guru",
+    nama: "Agenda Guru",
+    grup: "Akademik",
+    ikon: "NotebookPen",
+    path: "/akademik/agenda",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: true,
+    tahap: 3,
+  },
+  {
+    key: "absensi_siswa",
+    nama: "Absensi Siswa",
+    grup: "Akademik",
+    ikon: "CheckSquare",
+    path: "/akademik/rekap-absensi",
+    aksi: ["lihat", "tambah", "ubah"],
+    implemented: true,
+    tahap: 3,
+  },
+  {
+    key: "riwayat_materi",
+    nama: "Riwayat Materi",
+    grup: "Akademik",
+    ikon: "BookMarked",
+    path: "/akademik/riwayat-materi",
+    aksi: ["lihat", "export"],
+    implemented: true,
+    tahap: 3,
+  },
+  {
+    key: "izin_siswa",
+    nama: "Izin/Sakit Harian",
+    grup: "Akademik",
+    ikon: "FileHeart",
+    path: "/akademik/izin-siswa",
+    aksi: ["lihat", "tambah", "ubah"],
+    implemented: true,
+    tahap: 3,
+  },
+  {
+    key: "papan_kbm",
+    nama: "Papan KBM Hari Ini",
+    grup: "Akademik",
+    ikon: "LayoutGrid",
+    path: "/akademik/papan-kbm",
+    aksi: ["lihat", "ubah"],
+    implemented: true,
+    tahap: 3,
+  },
+  {
+    key: "monitoring_kbm",
+    nama: "Monitoring KBM",
+    grup: "Akademik",
+    ikon: "Activity",
+    path: "/akademik/monitoring",
+    aksi: ["lihat", "export"],
+    implemented: true,
+    tahap: 3,
+  },
+  {
+    key: "kalender_akademik",
+    nama: "Kalender Akademik",
+    grup: "Pengaturan",
+    ikon: "CalendarDays",
+    path: "/pengaturan/kalender-akademik",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: true,
+    tahap: 3,
+  },
+
+  // Tahap 4 — Kiosk
+  {
+    key: "kiosk_presensi_guru",
+    nama: "Presensi Guru (Kiosk)",
+    grup: "Kiosk",
+    ikon: "ScanFace",
+    path: "/kiosk",
+    aksi: ["lihat"],
+    implemented: true,
+    tahap: 4,
+  },
+  {
+    key: "kiosk_buku_tamu",
+    nama: "Buku Tamu (Kiosk)",
+    grup: "Kiosk",
+    ikon: "BookUser",
+    path: "/kiosk",
+    aksi: ["lihat"],
+    implemented: true,
+    tahap: 4,
+  },
+  {
+    key: "perangkat_kiosk",
+    nama: "Perangkat Kiosk",
+    grup: "Pengaturan",
+    ikon: "Tablet",
+    path: "/pengaturan/perangkat-kiosk",
+    aksi: ["lihat", "tambah", "hapus"],
+    implemented: true,
+    tahap: 4,
+  },
+  {
+    key: "pengaturan_presensi",
+    nama: "Pengaturan Presensi",
+    grup: "Pengaturan",
+    ikon: "Clock",
+    path: "/pengaturan/presensi",
+    aksi: ["lihat", "ubah"],
+    implemented: true,
+    tahap: 4,
+  },
+  {
+    key: "rekap_presensi_guru",
+    nama: "Rekap Presensi Guru",
+    grup: "Kepegawaian",
+    ikon: "CalendarCheck",
+    path: "/presensi-guru",
+    aksi: ["lihat", "export"],
+    implemented: true,
+    tahap: 4,
+  },
+  {
+    key: "izin_guru",
+    nama: "Izin/Sakit/Dinas Guru",
+    grup: "Kepegawaian",
+    ikon: "FileHeart",
+    path: "/izin-guru",
+    aksi: ["lihat", "tambah", "ubah"],
+    implemented: true,
+    tahap: 4,
+  },
+  {
+    key: "pengelolaan_buku_tamu",
+    nama: "Buku Tamu",
+    grup: "Kepegawaian",
+    ikon: "BookUser",
+    path: "/buku-tamu",
+    aksi: ["lihat", "ubah", "export"],
+    implemented: true,
+    tahap: 4,
+  },
+
+  // Tahap 5 — Kesiswaan
+  {
+    key: "pelanggaran",
+    nama: "Pelanggaran",
+    grup: "Kesiswaan",
+    ikon: "AlertTriangle",
+    path: "/kesiswaan/pelanggaran",
+    aksi: ["lihat", "tambah", "ubah", "hapus", "export"],
+    implemented: false,
+    tahap: 5,
+  },
+  {
+    key: "prestasi",
+    nama: "Prestasi Siswa",
+    grup: "Kesiswaan",
+    ikon: "Trophy",
+    path: "/kesiswaan/prestasi",
+    aksi: ["lihat", "tambah", "ubah", "hapus", "export"],
+    implemented: false,
+    tahap: 5,
+  },
+
+  // Tahap 6 — Raport
+  {
+    key: "raport",
+    nama: "Raport",
+    grup: "Akademik",
+    ikon: "FileText",
+    path: "/akademik/raport",
+    aksi: ["lihat", "ubah", "export", "approve"],
+    implemented: false,
+    tahap: 6,
+  },
+
+  // Tahap 7 — Sarana & Persuratan
+  {
+    key: "sarana_prasarana",
+    nama: "Sarana Prasarana",
+    grup: "Sarana & Persuratan",
+    ikon: "Building2",
+    path: "/sarana/sarana-prasarana",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: false,
+    tahap: 7,
+  },
+  {
+    key: "surat_keluar",
+    nama: "Surat Keluar",
+    grup: "Sarana & Persuratan",
+    ikon: "Mail",
+    path: "/sarana/surat-keluar",
+    aksi: ["lihat", "tambah", "ubah", "hapus", "export", "approve"],
+    implemented: false,
+    tahap: 7,
+  },
+
+  // Tahap 8 — Dashboard & Pengumuman
+  {
+    key: "dashboard_role",
+    nama: "Dashboard",
+    grup: "Dashboard",
+    ikon: "LayoutDashboard",
+    path: "/dashboard",
+    aksi: ["lihat"],
+    implemented: false,
+    tahap: 8,
+  },
+  {
+    key: "papan_pengumuman",
+    nama: "Papan Pengumuman",
+    grup: "Dashboard",
+    ikon: "Megaphone",
+    path: "/pengumuman",
+    aksi: ["lihat", "tambah", "ubah", "hapus"],
+    implemented: false,
+    tahap: 8,
+  },
+];
+
+export function getModule(key: string): ModuleDefinition | undefined {
+  return MODULES.find((m) => m.key === key);
+}
+
+export function getImplementedModules(): ModuleDefinition[] {
+  return MODULES.filter((m) => m.implemented);
+}
+
+export const MODULE_KEYS = MODULES.map((m) => m.key) as [string, ...string[]];

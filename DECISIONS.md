@@ -1,0 +1,234 @@
+# Catatan Keputusan Teknis
+
+Dokumen ini mencatat keputusan teknis yang tidak dijelaskan rinci di prompt, beserta alasannya, supaya tahap berikutnya bisa melanjutkan tanpa menebak-nebak.
+
+---
+
+# Tahap 2 — Data Master
+
+## Enforcement scope `milik_sendiri`
+
+- `src/server/services/scope.service.ts` jadi sumber kebenaran: `getScopedRombelIds()` menghitung cakupan rombel seorang guru = (rombel yang diajar lewat `pembagian_tugas`) ∪ (rombel yang diwalikan lewat `rombel.wali_guru_id`), digabung dalam satu query, bukan per-role — karena satu user punya satu `guru_id` terlepas dari berapa role yang dipegang, baris `pembagian_tugas`/`rombel` miliknya sudah mencakup semua penugasan apa pun rolenya.
+- Dipakai di endpoint list/detail Siswa (`GET /siswa`, `GET /siswa/:id`) via `resolveScopedRombelIds()` (null = scope `semua`, array = daftar rombel yang boleh diakses, array kosong = tidak ada akses sama sekali) dan `assertRombelInScope()` (403 kalau rombel siswa di luar cakupan).
+- **Diverifikasi end-to-end** dengan skenario nyata: guru yang diset sebagai wali kelas 7A, login dengan akun sungguhan, `GET /api/siswa` hanya mengembalikan siswa di 7A (siswa di rombel lain yang scope-nya `milik_sendiri` otomatis tidak muncul), dan `GET /api/siswa/:id` untuk siswa di rombel lain memberi 403 `"Anda tidak punya akses ke data siswa ini."`.
+
+## Soft-delete vs unique index asli — pola yang dikonfirmasi ulang
+
+- Pola Tahap 1 di `roles.service.ts` (`assertNameAvailable` cek `eq(roles.name, name)` **tanpa** filter `isNull(deleted_at)`) ternyata bukan kebetulan — itu memang satu-satunya cara yang konsisten dengan uniqueIndex DB yang **tidak** parsial (tidak mengecualikan baris soft-deleted). Kalau service layer mengizinkan nama dipakai ulang setelah soft-delete tapi index DB tidak, hasilnya error 500 mentah dari SQLite, bukan pesan error yang rapi.
+- **Ditemukan & diperbaiki** saat membangun Tahap 2: `rombel.service.ts` (nama per periode) dan `mapel.service.ts` (kode_jadwal) awalnya ikut memfilter `isNull(deleted_at)` di pengecekan ketersediaan nama — menyebabkan 500 mentah `UNIQUE constraint failed` saat mencoba memakai ulang nama/kode yang baru saja dihapus. Diperbaiki dengan menghapus filter itu, selaras dengan pola `roles.service.ts`.
+- **Guru** (`nip`) dan **Siswa** (`nis`, `nisn`) ditinjau juga: `guru.nip` **tidak** punya uniqueIndex DB (cuma index biasa), jadi `assertNipAvailable` di `guru.service.ts` boleh (dan memang) memfilter `isNull(deleted_at)` — NIP yang sama bisa dipakai ulang kalau data guru sebelumnya memang sudah dihapus permanen. `siswa.nis`/`siswa.nisn` punya uniqueIndex asli, jadi mengikuti pola `roles.ts` (tanpa filter `deleted_at`).
+- **Pelajaran**: setiap kali menambah pengecekan "nama/kode sudah dipakai", cek dulu apakah kolom itu punya `uniqueIndex` DB asli atau cuma `index` biasa — itu yang menentukan apakah soft-deleted row boleh diabaikan di pengecekan aplikasi.
+
+## Urutan registrasi route Hono — kelas bug yang sama muncul dua kali
+
+- Hono mencocokkan route berdasar urutan registrasi; `PUT "/:id"` yang didaftarkan **sebelum** `PUT "/urutan"` akan membajak path literal `/urutan` (menjadikan `"urutan"` sebagai nilai `:id`) kalau sama-sama di path depth 1 segmen.
+- **Ditemukan via pengujian langsung** (bukan tinjauan kode) di `mapel.ts`: `PUT /mapel/urutan` gagal dengan ZodError aneh (field `nama`/`kodeJadwal` dsb. dianggap `undefined`) karena ketangkap oleh handler `updateMapelSchema`, bukan `updateUrutanMapelSchema`. Diperbaiki dengan memindah route statis (`/urutan`) ke atas sebelum `/:id`.
+- **Pola pencegahan** yang dipakai konsisten di semua route Tahap 2 setelahnya (`siswa.ts`, `guru.ts`, `jadwal.ts`, `pembagianTugas.ts`): route literal/statis (`/export`, `/simple`, `/bulk/*`, `/import/*`) selalu didaftarkan **sebelum** route dengan parameter dinamis depth sama (`/:id`). Route dengan segmen tambahan (`/:id/status`, `/:id/alias`) aman di urutan mana pun karena depth-nya beda dari `/:id` polos.
+
+## Batas CPU PBKDF2 membentuk arsitektur "buat akun massal"
+
+- DECISIONS Tahap 1 sudah mencatat PBKDF2 5.000 iterasi ≈ 7-13ms CPU per hash, dekat batas 10ms/request Workers Free plan. Ini berarti **tidak mungkin** hash banyak password sekaligus dalam satu request (mis. endpoint `POST /guru/bulk/buat-akun` yang nge-hash N password dalam satu invocation) tanpa risiko timeout.
+- **Keputusan**: "buat akun massal" untuk guru **sengaja tidak dibuat sebagai satu endpoint backend**. Sebagai gantinya, `POST /guru/:id/buat-akun` (satu akun per request, sama seperti alur `createUser` Tahap 1) dipanggil berulang dari browser per guru yang dipilih — tiap panggilan dapat CPU budget penuh sendiri. Ini konsisten dengan prinsip "hemat kuota: kerja berat di browser" di bagian 7A prompt, hanya diterapkan ke pola request HTTP, bukan cuma pemrosesan data.
+
+## Import Excel: commit satu-lintasan, bukan 3 fase start/chunk/finish
+
+- Rencana awal (lihat plan section 5) menyebut pola commit 3 fase (`start` → `chunk` → `finish`) untuk impor jadwal, meniru pola transaksi bertahap. Setelah schema dirancang ulang, ini **disederhanakan jadi satu endpoint** `POST /jadwal-import/commit` yang memproses semua baris dalam satu request, dipecah secara internal lewat `chunkArray()` + beberapa `db.batch()` (bukan beberapa request terpisah dari klien).
+- **Alasan**: setiap impor selalu membuat `jadwal_versi` **baru berstatus `draf`** — tidak pernah langsung menimpa jadwal `aktif` yang sedang dipakai. Admin meninjau & bisa menyunting manual (halaman Jadwal Pelajaran, Tahap 2 langkah 8) sebelum mengaktifkan versi itu. Karena tidak ada risiko korupsi data produksi, kompleksitas commit bertahap lintas-request tidak diperlukan — satu request yang dipecah internal lewat `db.batch()` (pola yang sudah dipakai konsisten di `copyRombelFromPeriod`, `importSiswaCommit`, dll.) sudah cukup aman dan jauh lebih sederhana di frontend maupun backend.
+- Konflik guru-mengajar-dua-rombel-di-jam-sama saat commit **tidak memblokir** impor — masuk sebagai `warnings[]` di response, karena admin tetap bisa membetulkannya manual di editor jadwal sebelum mengaktifkan versi tersebut.
+
+## Parser jadwal (`src/shared/jadwal-parser.ts`)
+
+- Modul murni TypeScript tanpa dependency SheetJS/DOM — menerima abstraksi `SheetGrid` (`cell(row,col)`, `merges[]`, `rowCount`, `colCount`) supaya bisa diuji lewat Vitest dengan fixture buatan tangan dan dipakai ulang persis sama di browser lewat adapter tipis `src/client/lib/sheetGridAdapter.ts` yang membungkus worksheet SheetJS.
+- **12 unit test** (`jadwal-parser.test.ts`, `npm test`) mencakup: parsing dasar kode mapel + nama guru, split guru team-teaching (`&` dan `dan`), pewarisan merge vertikal HARI/WAKTU/JAM KE-, merge horizontal penuh → entri "kegiatan" via pencocokan kata kunci (istirahat/upacara/pembiasaan, case-insensitive), merge horizontal sebagian → konten diduplikasi ke tiap kelas yang tercakup, kolom Piket hanya dibaca di baris pertama blok hari, kolom bantu di kanan Piket diabaikan, peringatan (bukan error) untuk jam tumpang tindih dan format waktu tak terbaca, beberapa blok header dalam satu sheet, dan sheet tanpa header sama sekali (hasil kosong, tidak melempar exception).
+- **Divalidasi lagi lewat jalur nyata**: dibuat file `.xlsx` sungguhan (bukan fixture Vitest) dengan `merge` HARI vertikal + `KELAS` horizontal + `Istirahat` horizontal, dijalankan lewat `sheetToGrid()` + `parseJadwalSheet()` yang sama persis dengan yang dipakai wizard produksi, lalu diimpor penuh (match → pemetaan manual → commit) — hasil akhir di database cocok 1:1 dengan isi spreadsheet sumber.
+- **`contoh-data/JADWAL KMB 2025-2026.xlsx` (file asli sekolah) belum tersedia** saat Tahap 2 dikerjakan — sesuai arahan eksplisit pengguna ("Lanjut sekarang, validasi nanti"), parser dibangun dari deskripsi struktur di prompt + fixture buatan + satu file uji sintetis yang merepresentasikan pola yang sama (merge HARI, merge KELAS, kolom Piket, dll.). **Validasi terhadap file asli masih perlu dilakukan begitu file itu tersedia** — kemungkinan ada variasi format (mis. penulisan kode mapel/nama guru yang tidak konsisten, kolom tambahan, atau pola merge yang belum terbayang) yang baru ketahuan dari data nyata.
+
+## Pembagian Tugas Mengajar — logika team teaching
+
+- Aturan "1 guru per rombel+mapel kecuali team teaching" awalnya salah implementasi: baris lama yang **belum** ditandai `is_team_teaching=true` dianggap tetap memblokir guru kedua meski request baru eksplisit minta team teaching. **Diperbaiki**: kalau admin menambah guru kedua dengan `isTeamTeaching: true`, baris lama ikut di-"promote" jadi `is_team_teaching=true` (niat admin saat ini yang menentukan, bukan status lama baris pertama).
+
+## Kenaikan Kelas & Kelulusan — cakupan yang disederhanakan
+
+- Wizard hanya menangani pemetaan **per rombel** (rombel sumber → rombel tujuan / lulus / lewati), bukan override per-siswa individual (mis. satu siswa tinggal kelas sementara rombelnya naik). Alasan: skenario per-siswa itu sudah bisa ditangani lewat fitur Siswa yang sudah ada (ubah status individual, pindah rombel manual) setelah proses kenaikan massal selesai — menghindari duplikasi UI/logika untuk kasus minoritas.
+- `action: "lewati"` pada satu rombel berarti seluruh siswa AKTIF di rombel itu **tidak disentuh sama sekali** (tidak dapat penempatan di periode baru, tidak diubah statusnya) — admin menanganinya manual nanti.
+
+## Dependency baru
+
+- `xlsx` (SheetJS) **wajib** diinstal dari tarball CDN resmi (`https://cdn.sheetjs.com/xlsx-{versi}/xlsx-{versi}.tgz`), **bukan** dari npm registry — versi npm registry punya kerentanan HIGH severity yang belum pernah dipatch (prototype pollution, ReDoS) karena SheetJS berhenti mempublikasikan rilis terbaru ke npm. Lihat `package.json`.
+- `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` untuk drag&drop (urutan nomor absen, urutan raport mapel).
+- `vitest` sebagai dev dependency, dengan **config terpisah** (`vitest.config.ts`, bukan reuse `vite.config.ts`) — `@cloudflare/vite-plugin` di `vite.config.ts` mengelola siklus hidup server Vite sendiri dan bentrok ("There is already a server associated with the config") kalau dipakai bareng server yang dibuat Vitest untuk testing.
+
+## Stack & konfigurasi dasar
+
+- **@cloudflare/vite-plugin** dipakai untuk menyatukan dev server Vite dengan runtime Workers (workerd) — `vite dev` sudah menjalankan Worker asli (bukan simulasi), jadi perilaku dev = perilaku production.
+- **Routing Worker vs aset statis**: `wrangler.toml` memakai `run_worker_first = ["/api/*"]` + `not_found_handling = "single-page-application"`, jadi `/api/*` selalu ke Hono, rute lain yang tidak match file statis jatuh ke `index.html` (SPA).
+- **Environment dev vs production**: tidak pakai `[env.xxx]` terpisah di `wrangler.toml`. Nilai `[vars]` di root = nilai production. Dev lokal override lewat `.dev.vars` (git-ignored, contoh di `.dev.vars.example`) yang otomatis dibaca `vite dev`/`wrangler dev`. Ini menghindari duplikasi konfigurasi D1/R2 binding antar environment.
+- **Cookie sesi `Secure`**: hanya aktif kalau `ENVIRONMENT === "production"` (dev lokal jalan di `http://localhost` tanpa HTTPS, cookie Secure tidak akan terkirim kalau dipaksa aktif).
+
+## Password & keamanan
+
+- **PBKDF2 iterasi final: 5.000** (`DEFAULT_PBKDF2_ITERATIONS` di `src/server/lib/pbkdf2.ts`, juga `PASSWORD_PBKDF2_ITERATIONS` di `wrangler.toml`). **Sudah di-benchmark dengan `wrangler tail` di Worker production sungguhan** (`smp-al-madinah.smpal-madinah.workers.dev`, colo SIN) setelah deploy pertama:
+  - Mulai dari placeholder 100.000 iterasi → `POST /api/auth/login` makan **27ms CPU** (jauh di atas budget 10ms).
+  - Temuan penting: **`GET /api/health`** (tanpa query D1 sama sekali, cuma `c.json({ok:true})`) sudah makan **2-8ms CPU** sendiri di beberapa sampel — ini noise dasar dari routing/middleware/isolate scheduling di platform ini, di luar kendali kode aplikasi. Jadi budget 10ms harus menampung noise ini + kerja nyata (query D1, hashing).
+  - Diturunkan bertahap sambil diukur ulang: 100.000→27ms, 20.000→23ms (sample pertama, lalu turun), 8.000→rata-rata ~13ms (rentang 7-15ms), **5.000→rata-rata ~13ms (rentang 7-26ms)** — setelah titik ini, penurunan lebih lanjut memberikan hasil diminishing returns karena baseline noise (~2-8ms) sudah jadi porsi besar dari total, bukan lagi didominasi biaya hashing.
+  - **Kesimpulan**: 5.000 iterasi dipilih sebagai titik seimbang — login biasanya di kisaran 7-13ms (dekat budget, kadang sedikit lewat karena noise platform, bukan karena hashing), sambil tetap memberi perlindungan brute-force yang jauh lebih baik dibanding tanpa iterasi berulang sama sekali. Ini jelas di bawah rekomendasi OWASP (600.000+) — itu memang mustahil dipenuhi dalam batas CPU 10ms Workers Free plan; trade-off ini disengaja dan didokumentasikan di sini.
+  - **Optimasi lanjutan yang belum dikerjakan** (dicatat untuk nanti kalau budget CPU masih ketat): endpoint login saat ini menjalankan 4 operasi D1 terpisah (SELECT user, UPDATE percobaan login, INSERT session, INSERT activity log) — `createSession()` dan `logActivity()` bisa digabung lewat satu `db.batch()` untuk mengurangi overhead per-query, tapi berdasarkan data di atas dampaknya kemungkinan kecil dibanding noise baseline yang sudah ada.
+- Percobaan login disimpan sebagai kolom di `users` (`failed_login_attempts`, `locked_until`), bukan tabel `login_attempts` terpisah — opsi ini eksplisit diizinkan prompt, lebih sederhana (tidak perlu join setiap login).
+- `account_type` `KIOSK` baru berupa nilai enum di skema `users.account_type`; belum ada logika/route kiosk sama sekali — menyusul Tahap 4.
+- Wajib ganti password (`must_change_password`) ditegakkan di **frontend** lewat route guard (`RequireAuth` redirect ke `/ganti-password-wajib`), bukan di middleware backend yang memblokir semua endpoint lain. Backend tetap mengizinkan endpoint lain dipanggil oleh user yang belum ganti password — pertimbangan: memblokir di backend butuh daftar "endpoint yang dikecualikan" yang rawan salah dan menambah kompleksitas tanpa manfaat keamanan berarti (sesi tetap valid, hanya UX yang diarahkan).
+- Ganti password pakai **satu endpoint** (`PUT /api/auth/change-password`) untuk kedua skenario: wajib ganti di awal dan ganti sukarela lewat Profil Saya → Keamanan. Tidak ada endpoint `/api/profile/password` terpisah seperti disebut di rencana awal — redundan dengan endpoint yang sudah ada.
+
+## RBAC
+
+- Cache izin efektif per-user: **TTL 60 detik**, plus counter `roles_version` (disimpan di tabel `settings`) yang di-cache sendiri selama **5 detik**. Saat role/izin diubah, `bumpRolesVersion()` dipanggil — user lain melihat perubahan dalam ≤5 detik tanpa perlu re-login, tanpa harus query tabel `settings` di setiap request.
+- `role_permissions` disimpan per `(role_id, module_key, action)` dengan `scope` masing-masing (bukan satu scope per modul di level DB) — fleksibel kalau nanti suatu modul butuh scope berbeda per aksi. **UI** (matriks hak akses) menyederhanakan dengan satu dropdown scope per baris modul yang diterapkan ke semua aksi yang dicentang di baris itu.
+- **Bug yang ditemukan & diperbaiki saat pengujian**: `updateRolePermissions` awalnya memanggil `DELETE` lalu `INSERT` sebagai dua operasi terpisah — kalau `INSERT` gagal (lihat soal batas variable D1 di bawah), `DELETE`-nya sudah kadung commit duluan, menghapus semua izin role tanpa insert pengganti. Sekarang `DELETE` + semua `INSERT` dibungkus satu `db.batch()` (transaksi implisit D1) lewat `replaceRolePermissions()` di `roles.service.ts`.
+- **Batas variable D1 saat insert massal**: D1 membatasi jumlah bound parameter per statement jauh di bawah batas SQLite biasa. `role_permissions` punya 7 kolom, jadi insert banyak baris sekaligus (misal men-duplikat role dengan puluhan izin) dipecah per **10 baris/statement** (`ROLE_PERMISSIONS_INSERT_CHUNK_SIZE`) dan dikirim sekaligus lewat `db.batch()` (lihat `src/server/lib/chunk.ts`).
+- `requirePermission()` backend adalah sumber kebenaran; `usePermission()` frontend hanya untuk UX (sembunyikan menu/tombol). Diverifikasi: user tanpa izin yang memanggil API langsung tetap dapat 403 JSON yang jelas.
+- **`HTTPException` dari Hono harus dikonversi manual ke JSON** di `errorHandler.ts` (`err.getResponse()` bawaan mengembalikan teks polos, bukan `{error: string}`) — kalau tidak, semua pesan error bisnis (mis. "Role Admin terkunci...") tidak terbaca benar oleh frontend. Ditemukan & diperbaiki saat pengujian end-to-end.
+
+## Database & query
+
+- ID pakai `nanoid` custom alphabet (21 karakter, tanpa karakter ambigu).
+- `updated_at` di-set manual oleh setiap service saat mutasi (bukan trigger DB) — lebih eksplisit dan mudah ditelusuri, menghindari perilaku implisit SQLite trigger yang susah di-debug.
+- Pencarian user memakai prefix match (`LIKE 'teks%'`) pada `username`/`full_name`, bukan `LIKE '%teks%'` — sesuai anjuran hemat baca, meski `full_name` belum punya index khusus (tabel user skala sekolah kecil, full scan prefix masih murah).
+- Paginasi offset (`paginate()`) dipakai untuk tabel kecil-menengah (user, role via list biasa, tahun ajaran). Paginasi cursor (`paginateCursor`/`buildCursorResult`) khusus Log Aktivitas dan disiapkan untuk tabel transaksi tahap berikutnya.
+- `user_roles` dan `role_permissions` hard-delete (tabel relasi, bukan "data utama" yang perlu riwayat).
+
+## File & R2
+
+- Hanya gambar (`image/jpeg`, `image/png`, `image/webp`), maks 2MB, nama file diacak (`{prefix}/{nanoid}.{ext}`).
+- Foto profil bisa dilihat semua user yang login (tidak digating per-izin granular) — bukan data sensitif seperti nilai/data siswa.
+- Endpoint `GET /api/files/:id` men-stream dari R2 lewat Worker (bukan bucket publik); `logo`/`kop` dikecualikan dari wajib-login karena dibutuhkan di halaman login sebelum user punya sesi.
+- Crop foto profil jadi persegi dilakukan **otomatis di browser** (center-crop via canvas, `compressImage({ square: true })`) — bukan UI crop interaktif, supaya tetap sederhana di Tahap 1.
+
+## Log Aktivitas & arsip
+
+- `changes` (diff before/after) disimpan sebagai JSON `{kolom: {before, after}}` **hanya untuk kolom yang berubah** — dihitung oleh `diffChangedFields()`.
+- Cron arsip (`0 18 * * *` = 01:00 WIB) mengarsipkan **satu bulan tertua** yang sudah lewat retensi per run, maksimum **4000 baris** (20 halaman × 200 baris) supaya aman di bawah batas 50 subrequest/invocation Free plan. Kalau satu bulan punya >4000 baris log, run itu dilewati (log peringatan) dan dicoba lagi besok — skenario ini realistis sangat jarang untuk skala satu sekolah.
+- Hapus baris log yang sudah diarsipkan dipecah per **50 ID/statement** (`DELETE ... WHERE id IN (...)`) dengan alasan batas variable D1 yang sama seperti di atas, dibungkus satu `db.batch()` bersama insert baris `activity_log_archives` supaya atomic.
+- Format arsip: satu file JSON array ter-gzip per bulan (`arsip-log/YYYY-MM.json.gz`), bukan NDJSON — lebih sederhana untuk Tahap 1, dan ukurannya kecil untuk skala sekolah.
+
+## Halaman & menu
+
+- Halaman "Pemakaian Sistem" ditaruh di bawah grup menu **Pengaturan** (tidak disebut eksplisit di struktur menu Tahap 1 pada prompt, tapi diwajibkan oleh bagian 7A "Monitoring kuota").
+- Manajemen Pengguna pakai Dialog untuk tambah/ubah; Manajemen Fitur pakai halaman penuh untuk matriks hak akses (terlalu besar untuk dialog).
+- `scope` (`semua`/`milik_sendiri`) baru **disimpan dan ditampilkan** di Tahap 1; penegakan di level query (mis. guru hanya lihat kelasnya) menyusul begitu data tahap 2+ tersedia untuk benar-benar difilter.
+- Role "Guru", "Wali Kelas", "BK/Kesiswaan" diberi izin `beranda:lihat` di seed supaya mereka punya landing page begitu login — role "Kiosk" sengaja **tidak** diberi izin apa pun di modul Tahap 1 (sesuai spek: Kiosk hanya untuk perangkat tablet di Tahap 4; akun Kiosk belum punya alur login normal yang bermakna sampai Tahap 4 dibangun).
+
+## Form & validasi (zod + react-hook-form)
+
+- Skema zod yang dipakai langsung oleh react-hook-form (`createUserSchema`, `schoolProfileSchema`, `updateProfileSchema`, dll.) **sengaja tidak memakai `.transform()`/`.default()`** — kombinasi itu membuat tipe input vs output zod berbeda, yang bikin `zodResolver` konflik tipe dengan `useForm<T>`. Field opsional (email/no. HP/dll.) divalidasi sebagai string biasa (boleh kosong `""`); normalisasi `"" → null` sebelum disimpan dilakukan di **service layer backend** (`nullIfEmpty()` di `src/server/lib/text.ts`), bukan di skema zod.
+
+## PWA
+
+- Ikon default (`public/icons/icon-192.png`, `icon-512.png`, `icon-maskable.png`) dibuat otomatis lewat `npm run generate:icons` (`scripts/generate-icons.ts`) — PNG mentah digambar manual lewat `node:zlib` tanpa dependensi tambahan (ikon gedung sekolah sederhana warna indigo). **Ganti dengan logo sekolah asli** saat tersedia; lihat README bagian "Mengganti ikon PWA".
+- **Terverifikasi di production**: pendaftaran Service Worker sempat gagal generik ("unknown error") saat diuji di browser pane sandbox milik environment pengembangan — tapi setelah deploy ke domain production asli (`https://smp-al-madinah.smpal-madinah.workers.dev`), `navigator.serviceWorker.getRegistration()` mengonfirmasi SW ter-register dan **`state: "activated"`**. Jadi kegagalan sebelumnya memang murni keterbatasan sandbox lokal (service worker registration sering sengaja dibatasi di lingkungan browser otomatis/headless), bukan bug di kode — semua artefak PWA (manifest, `sw.js`, `workbox-*.js`, ikon) memang sudah benar sejak awal.
+- `registerType: "prompt"` dipakai (bukan `autoUpdate`) supaya update service worker tidak reload otomatis diam-diam — sesuai requirement toast "Versi baru tersedia" + tombol "Muat Ulang" manual.
+
+## Backup
+
+- GitHub Actions (`.github/workflows/backup.yml`) jalan di `ubuntu-latest`, pakai `wrangler d1 export --remote` lalu `wrangler r2 object put --remote`, bukan REST API langsung — lebih sederhana dan memakai tooling resmi yang sama dengan development lokal.
+- Retensi 12 minggu untuk prefix `backup/` **dikonfigurasi manual** lewat R2 lifecycle rule di dashboard Cloudflare (bukan kode) — lihat README.
+
+## Hal yang sengaja belum lengkap (acceptable gap di Tahap 1)
+
+- Filter "user" di halaman Log Aktivitas hanya muncul kalau Admin yang login juga punya izin `manajemen_pengguna:lihat` (dipakai untuk mengambil daftar user untuk dropdown) — kalau tidak, filter itu disembunyikan daripada menampilkan dropdown kosong/error.
+- Belum ada uji Lighthouse PWA resmi (lihat poin PWA di atas).
+
+---
+
+# Tahap 3 — Agenda Guru + Absensi Siswa
+
+## "Pertemuan" sebagai konsep turunan, bukan tabel
+
+- Tidak ada tabel `pertemuan`. `groupPertemuan()` (`src/shared/pertemuan.ts`, fungsi murni) menggabungkan baris `jadwal_slot`+`jadwal_isi`+`jadwal_isi_guru` yang berurutan dengan mapel+set-guru sama jadi satu "pertemuan" (mis. 2 JP Matematika berturut = 1 pertemuan). Wrapper ber-DB `getPertemuanUntukTanggal()` (`pertemuan.service.ts`) memanggilnya setelah fetch dari versi jadwal **aktif**.
+- **Fungsi murni sengaja dipindah ke `src/shared/`** (bukan tetap di `src/server/services/`) supaya bisa diimpor langsung oleh script Node (`scripts/seed-dummy-tahap3.ts`) tanpa menarik tipe Workers-only (`D1Database`) lewat import berantai — `tsconfig.scripts.json` cuma meng-include `src/shared/**/*` + beberapa file `lib/` tertentu, bukan seluruh `src/server/`. `computeStatusHarian()` (lihat di bawah) dipindah dengan alasan sama. File service lama tetap re-export dari lokasi baru supaya tidak ada import yang patah.
+- `getPertemuanUntukTanggal()` tidak sebenarnya memakai parameter tanggal untuk apa pun selain dikembalikan — resolusi versi jadwal aktif cuma bergantung `periodId`+status, bukan tanggal spesifik. Ini dimanfaatkan `rekapMengajar.service.ts` untuk menghitung JP terjadwal satu bulan penuh dengan cuma **6 panggilan** (satu per hari SENIN–SABTU), bukan 28-31 panggilan per tanggal — supaya tetap jauh di bawah batas 50 subrequest/invocation meski untuk laporan bulanan.
+
+## Status harian: majority-JP, bukan majority-pertemuan
+
+- `computeStatusHarian()` (`src/shared/statusHarian.ts`) menghitung status harian siswa dari **total JP** (bukan jumlah pertemuan) berstatus S/I/A, dengan T (Terlambat) dan D (Dispensasi) **tidak pernah** mengurangi JP Hadir maupun masuk ke `absensi_harian` sama sekali. Seri diputus prioritas S > I > A > H.
+- **Hemat kuota**: `absensi_harian` hanya menyimpan baris untuk siswa yang statusnya **bukan** Hadir hari itu — siswa yang hadir penuh tidak punya baris sama sekali. `rekap_harian_rombel` menyimpan satu baris agregat per rombel per hari (jumlah S/I/A/JP terjadwal/terisi/kosong) supaya laporan bulanan/semester **membaca dari agregat**, bukan scan `agenda`+`absensi` mentah.
+- `recomputeStatusHarianCore()` melewati siswa yang baris `absensi_harian`-nya bersumber `koreksi_wali` — supaya koreksi manual wali kelas tidak tertimpa otomatis saat guru lain mengisi/mengedit agenda di hari yang sama.
+
+## Koreksi wali: status "H" menghapus baris, bukan menyimpan status khusus
+
+- `koreksiAbsensiHarian()` (`rekapAbsensi.service.ts`) menerima status `S`/`I`/`A`/`H` dari form koreksi, tapi kolom `absensi_harian.status` di skema cuma mengizinkan `S`/`I`/`A` (tidak ada "H" — konsisten dengan desain "cuma simpan baris non-Hadir"). Jadi koreksi ke "Hadir" **menghapus** baris `absensi_harian` yang ada, bukan menyimpannya dengan status khusus.
+- **Konsekuensi yang disengaja**: kalau agenda terkait diedit ulang nanti (mis. guru mengubah absensi pertemuan di hari yang sama), `recomputeStatusHarianCore()` tidak melihat penanda `koreksi_wali` apa pun (karena barisnya sudah tidak ada) dan akan menghitung ulang dari data agenda terbaru — koreksi "ke Hadir" tidak terkunci permanen. Ini dianggap perilaku yang benar: kalau data sumbernya (agenda) berubah, status harian seharusnya ikut berubah, bukan tetap "dipaksa Hadir" selamanya oleh koreksi lama.
+
+## Guru pengganti & jam kosong — scope ditambal di luar `scope.service.ts`
+
+- `getScopedRombelIds()` (Tahap 2) menghitung cakupan guru dari `pembagian_tugas` ∪ `rombel.wali_guru_id` — **tidak** otomatis mencakup rombel yang sedang digantikan seorang guru hari itu lewat `jadwal_pengganti`.
+- **Keputusan**: endpoint agenda yang diakses guru pengganti (`getJadwalHariIni`, `submitAgenda`) menambahkan **OR-check eksplisit** ke `jadwal_pengganti` di atas hasil `resolveScopedRombelIds()`, langsung di `agenda.service.ts` — bukan mengubah semantik `scope.service.ts` yang dipakai modul lain (Siswa, Jadwal Pelajaran Tahap 2) — supaya tidak ada efek samping ke fitur Tahap 2 yang sudah stabil.
+- `jadwal_pengganti` menyimpan satu baris **per jadwal_slot mentah** (bukan per "pertemuan" tergabung) dengan `uniqueIndex(jadwal_slot_id, rombel_id, tanggal)` — jadi pertemuan 2 JP yang digabung butuh 2 baris `jadwal_pengganti` (satu per slot), dibuat sekaligus lewat satu `db.batch()` di `assignPengganti()`.
+- Cek bentrok "guru pengganti sudah punya jadwal sendiri di jam itu" cuma mengecek `jadwal_isi_guru` untuk slot yang sama di **rombel manapun** — tidak memeriksa apakah slot asli guru itu sendiri sudah lebih dulu dialihkan ke pengganti lain (edge case langka, disederhanakan).
+
+## Rekap Keterlaksanaan Mengajar digabung ke halaman Riwayat Materi
+
+- `agenda_guru` dan `riwayat_materi` sudah ditetapkan sebagai modul terpisah (lihat bagian registry di bawah), tapi **Rekap Keterlaksanaan Mengajar tidak dijadikan modul/halaman terpisah** — dipasang sebagai tab kedua di halaman Riwayat Materi (`RiwayatMateriPage.tsx`, route `/akademik/riwayat-materi`), dengan endpoint `GET /agenda/rekap-mengajar` digerbang oleh izin `agenda_guru:lihat` yang sudah ada. Alasan: kedua laporan sama-sama "riwayat yang berkaitan dengan guru", menghindari modul berlebihan untuk satu laporan read-only kecil.
+
+## Rekap Absensi Siswa — WA & ekspor di browser, bukan endpoint khusus
+
+- Tombol WA membuka `https://wa.me/<nomor>?text=...` langsung dari browser (`window.open`), **tidak** mengirim pesan otomatis dari server — sesuai batasan "jangan kirim WA otomatis tanpa aksi eksplisit guru/wali". Nomor diformat `0xxx → 62xxx` di frontend.
+- Ekspor Excel memakai pola yang sama dengan Tahap 2 (`useExportSiswa` dkk.): data yang **sudah ter-fetch** di tab Semester diubah jadi worksheet via `XLSX.utils.json_to_sheet()` + `XLSX.writeFile()`, murni di browser — tidak ada endpoint `/export` baru di server.
+
+## Bug yang ditemukan & diperbaiki saat pengujian end-to-end
+
+- **`rekap_harian_rombel` tidak ikut dihitung ulang saat izin harian menyesuaikan agenda yang sudah terisi**: `sesuaikanAgendaTerisi()` (`izinSiswa.service.ts`) awalnya cuma memanggil `recomputeStatusHarianSiswa()` (per-siswa) tanpa memanggil `upsertRekapHarianRombel()` (agregat per-rombel) — jumlah S/I/A di level rombel jadi basi (stale) setelah koreksi izin mundur. **Ditemukan lewat pengujian langsung**: submit izin lewat API, lalu bandingkan `absensi_harian` (benar, ter-update) vs `rekap_harian_rombel` (salah, masih nilai lama). Diperbaiki dengan meng-export `upsertRekapHarianRombel()` dari `agenda.service.ts` dan memanggilnya juga di `sesuaikanAgendaTerisi()` untuk tiap (rombel, tanggal) yang terdampak — perlu panggilan tambahan ke `getPertemuanUntukTanggal()` untuk menghitung ulang `jpTerjadwal` hari itu.
+- **`getBelumDiisi7Hari()` (Monitoring KBM) awalnya memakai `new Date().toISOString()` (UTC) untuk "hari ini"**, bukan `nowWib()` — melanggar aturan "semua tanggal 'hari ini' harus pakai WIB" yang sudah ditetapkan sejak Tahap 1. Dampaknya: antara pukul 00:00–07:00 WIB (saat UTC masih di tanggal kemarin), jendela 7-hari-terakhir akan salah geser satu hari. **Ditemukan lewat tinjauan kode sendiri** (bukan lewat pengujian — perbedaan baru terlihat di jam-jam tertentu, sulit dipicu lewat pengujian manual biasa) segera setelah ditulis, sebelum sempat jadi bug produksi. Diperbaiki dengan `nowWib().tanggal`.
+
+## Script data dummy (`scripts/seed-dummy-tahap3.ts`)
+
+- Hanya menghasilkan data untuk **jadwal yang sudah benar-benar ada** di database (tidak membuat rombel/siswa/guru/jadwal baru) — supaya tidak ada baris dengan FK yang menunjuk ke data yang tidak nyata. Konsekuensinya: hasil generate proporsional dengan seberapa lengkap Jadwal Pelajaran sudah diisi di database yang dijalankan.
+- **SENGAJA tidak punya varian `--remote`** di `package.json` (cuma `seed:dummy:local`) dan script-nya sendiri menolak jalan kalau flag `--remote` diberikan — supaya mustahil tidak sengaja menjalankan generator data dummy ke database production.
+- Idempotent: tanggal yang sudah punya baris `agenda` (rombel+tanggal+slot yang sama) dilewati, bukan ditimpa — aman dijalankan berkali-kali.
+
+---
+
+# Tahap 4 — Kiosk Presensi Guru + Buku Tamu
+
+## Library pengenalan wajah: `@vladmandic/human`
+
+- Dipilih dibanding `@vladmandic/face-api` (opsi lain yang disebut prompt) karena: masih aktif dirawat (fork `face-api.js` yang asli sudah lama ditinggalkan penulisnya), TypeScript native, dan **satu library sudah mencakup semuanya** — deteksi wajah (`blazeface`), landmark (`facemesh`), descriptor/embedding (`faceres`), DAN liveness+anti-spoof (`liveness.bin`+`antispoof.bin`, model khusus bawaan) — bukan merakit beberapa model/library terpisah untuk tiap kebutuhan.
+- **Model yang dipakai** (disalin dari `node_modules/@vladmandic/human/models/` ke `public/models/`): `blazeface`, `facemesh`, `faceres`, `liveness`, `antispoof` (~10MB total). Model yang **tidak** dipakai (tidak disalin, supaya tidak ikut ukuran unduhan): `centernet` (deteksi objek umum), `emotion`, `handlandmark`/`handtrack` (tangan), `iris` (detail iris — tidak perlu untuk sekadar matching wajah), `movenet` (pose tubuh).
+- **Liveness**: dipakai skor bawaan `face.live` (model liveness) dan `face.real` (model antispoof) dari Human sebagai gerbang utama (ambang 0.5 masing-masing) — **bukan** blink-detection manual dari landmark mata. Ini lebih robust dibanding menghitung eye-aspect-ratio sendiri, karena model liveness Human sudah dilatih khusus mendeteksi foto-di-layar-HP vs wajah asli. Instruksi acak ("Berkedip", "Toleh ke kiri") tetap ditampilkan ke guru sesuai permintaan prompt — berfungsi sebagai jeda alami supaya model punya cukup frame untuk menilai, bukan sebagai pemicu logika pass/fail terpisah.
+- **`human.match.find()`** (API bawaan Human untuk nearest-neighbor descriptor matching) dipakai langsung di `src/client/lib/humanFace.ts`, bukan menghitung jarak Euclidean manual.
+- **Deteksi "ragu"** (dua kandidat sama-sama mirip, lihat bagian 5.2 prompt): setelah dapat kandidat terbaik, `matchFace()` menghitung ulang kecocokan ke sisa kandidat (tanpa yang terbaik) dan menolak match kalau selisih similarity < 0.08 — konsisten dengan "sistem tidak menebak kalau dua guru sama-sama mirip".
+- **Model & chunk library dikecualikan dari precache PWA** (`globIgnores` di `vite.config.ts`) dan diberi `runtimeCaching` `CacheFirst` tersendiri — supaya cuma diunduh oleh perangkat yang benar-benar membuka halaman kiosk/Data Wajah, bukan oleh semua pengguna staf biasa saat install Service Worker. `jspdf`+`html2canvas`+`purify.es` (dipakai ekspor PDF Tahap 4) diberi perlakuan sama dengan alasan yang sama.
+
+## Pairing kiosk: reuse sesi, bukan skema auth baru
+
+- `POST /api/kiosk/pair` menukar kode 6-digit (tabel `kiosk_pairing_codes`, TTL 10 menit, dibuat Admin lewat "Tambah Perangkat" — nama & lokasi perangkat **diisi saat generate kode**, bukan setelah pairing, supaya `kiosk_devices` langsung punya metadata lengkap begitu `session_id` terisi) dengan **sesi biasa** (tabel `sessions` yang sudah ada sejak Tahap 1) berumur 1 tahun, terikat ke user baru `account_type='KIOSK'` (satu akun per perangkat, dibuat otomatis saat pairing — bukan dari `scripts/seed.ts`). Ini reuse penuh `requireAuth`/`c.get("user")`/`attachSession` yang sudah ada, tanpa mekanisme token/auth paralel.
+- **Bug yang ditemukan & diperbaiki saat menulis**: `resolveSession()` (session.service.ts) awalnya selalu memperpanjang sesi yang aktif dengan `SESSION_TTL_MS` (7 hari, konstanta tetap untuk sesi staf) — kalau dipakai apa adanya, sesi kiosk 1-tahun akan **terpotong jadi 7 hari** pada perpanjangan sliding-expiry pertama setelah `EXTEND_THRESHOLD_MS` (1 jam) terlewati. Diperbaiki dengan menghitung ulang durasi asli sesi itu sendiri (`expires_at - created_at`) dan memakai `Math.max(durasiAsli, SESSION_TTL_MS)` saat memperpanjang — ditemukan lewat tinjauan kode sendiri sebelum sempat jadi bug produksi (tablet logout sendiri setelah beberapa jam pemakaian).
+- `requireKioskDevice` (middleware baru) mengecek status `kiosk_devices` aktif di **setiap request** kiosk (bukan cuma saat sesi dibuat) — "cabut perangkat" dari Admin langsung memutus akses tablet itu, tidak menunggu sesi kedaluwarsa. Dipanggil bersamaan dengan `touchDeviceActivity()` supaya kolom "terakhir aktif" di halaman Perangkat Kiosk ter-update tanpa endpoint terpisah.
+
+## PIN presensi: kolom di `guru`, hash PBKDF2 sama seperti password
+
+- PIN disimpan sebagai `pin_hash`/`pin_salt`/`pin_iterations` di tabel `guru` (bukan tabel terpisah, karena relasinya selalu 1:1) — pola hash & lockout (5x salah → kunci 15 menit) **reuse langsung** `hashPassword`/`verifyPassword` dari `pbkdf2.ts` dan konstanta `MAX_FAILED_LOGIN_ATTEMPTS`/`LOCKOUT_DURATION_MS` yang sudah ada dari Tahap 1, bukan implementasi baru.
+- PIN awal **dibuat lazy** (`pastikanPinAwal()`) — bukan saat guru didaftarkan, tapi saat guru pertama kali mencoba presensi lewat PIN (atau pertama kali membuka tab Presensi di Profil Saya untuk ganti PIN). Dihitung dari 4 digit tahun lahir (`guru.tanggal_lahir`). Alasan: menghindari harus meng-generate+menyimpan hash PIN untuk SEMUA guru sekaligus (termasuk yang tidak pernah dipakai presensi kiosk), konsisten dengan prinsip "kerjakan saat benar-benar dibutuhkan".
+- Guru mengganti PIN sendiri lewat tab **Presensi** di Profil Saya (`PUT /api/profile/pin`) — wajib memasukkan PIN lama (konsisten pola ganti password), dan PIN baru ditolak kalau sama persis dengan tahun lahir (sesuai larangan di prompt).
+
+## Status presensi: fungsi murni di `shared/`, bukan di service
+
+- `computeStatusDatang`/`computeStatusPulang`/`computeStatusHarianPresensi` (`src/shared/presensiGuru.ts`) adalah fungsi murni tanpa DB — pola yang sama dengan `computeStatusHarian` Tahap 3, diuji lewat `presensiGuru.test.ts`. Resolusi **jam kerja efektif** (yang butuh query DB — cek override per-guru, mode `jadwal_mengajar` yang reuse `getPertemuanUntukTanggal` Tahap 3) tetap di `presensiGuru.service.ts` sebagai wrapper, memanggil fungsi murni itu setelah tahu jam masuk/pulang yang berlaku.
+- **Mode `jadwal_mengajar`** menghitung jam masuk dari **pertemuan pertama guru hari itu** (lewat fungsi yang sama dipakai Tahap 3 untuk Jadwal Hari Ini guru) dikurangi offset yang diatur Admin — guru tanpa jadwal mengajar hari itu otomatis jatuh balik ke jam sekolah biasa (`pengaturan.jamKerja[hari]`).
+- **Status harian gabungan** (`computeStatusHarianPresensi`) memprioritaskan `terlambat` di atas `pulang_cepat` kalau keduanya terjadi di hari yang sama (dipilih sebagai representasi "paling signifikan" untuk satu label ringkas) — tapi `menit_terlambat` dan `menit_pulang_cepat` tetap disimpan **terpisah** di `rekap_presensi_guru_harian`, jadi tidak ada informasi yang hilang, cuma label ringkasnya yang memprioritaskan satu.
+
+## Antrean offline: IndexedDB mentah, jam tetap dari server
+
+- `src/client/lib/offlineQueue.ts` pakai `indexedDB` browser langsung (bukan paket `idb`) — konsisten prinsip minim dependency. Flush otomatis saat event `online` + polling tiap 2 menit (`useOfflineQueueFlush`).
+- **Jam presensi yang tersimpan di database selalu jam SERVER saat request diterima** (`nowWib()`), bukan jam yang dikirim perangkat — termasuk untuk item dari antrean offline (baru terkirim saat online lagi, jadi "waktu" di `presensi_guru` adalah jam saat berhasil terkirim, bukan jam saat tombol ditekan di tablet). Jam asli saat presensi dibuat di perangkat disimpan terpisah di kolom `waktu_perangkat` (ditandai `sumber='antrean_offline'`) semata-mata untuk verifikasi Admin kalau ada keberatan — **bukan** jam resmi yang dipakai menghitung status terlambat/tepat waktu. Ini konsisten dengan requirement eksplisit prompt ("mengubah jam tablet tidak memengaruhi waktu presensi online").
+
+## Guru pengganti & Papan KBM: perubahan aditif ke Tahap 3, bukan modifikasi
+
+- `izinGuru.service.ts` punya `getGuruIzinPadaTanggal()` yang dipanggil `penggantiKbm.service.ts` (`getPapanKbm`, Tahap 3) untuk menambah field baru `izinInfo` per sel — **field baru ditambahkan ke `PapanKbmCell`**, bukan mengubah struktur/logika yang sudah ada. Guru yang izin PARSIAL (cuma sebagian jam) sengaja **tidak** dianggap "perlu pengganti" di Papan KBM (`getGuruIzinPadaTanggal` memfilter `parsial=false`) — izin sebagian hari dianggap guru itu sendiri yang mengatur penyesuaian jadwalnya, bukan kasus otomatis-perlu-guru-pengganti.
+
+## Hal yang sengaja disederhanakan (dicatat di sini)
+
+- **Kolom opsional Buku Tamu** (No. HP, Ingin Bertemu Dengan — disebut "bisa dinyalakan/dimatikan Admin, default mati" di prompt) **selalu ditampilkan** di form kiosk, tidak ada toggle Admin untuk menyembunyikannya. Alasan: menghindari modul pengaturan terpisah untuk satu pasang field kecil; keduanya memang ditandai "(opsional)" di label sehingga tamu boleh mengosongkannya.
+- **Notifikasi "Ingin Bertemu Dengan" di Beranda** (disebut eksplisit opsional di prompt) **tidak dibangun** — datanya tersimpan & tampil di halaman Buku Tamu Admin, tapi tidak ada widget real-time di Beranda guru/staf yang dituju.
+- **Kalender Hijriah** di jam kiosk (disebut opsional) **tidak dibangun**.
+- **`hari_wajib_override` per guru** (disebut opsional di prompt bagian 6 — "guru honorer hanya wajib di hari dia mengajar") — kolomnya **ada** di skema dan **dihormati** oleh `resolveJamKerjaEfektif()` kalau terisi, tapi **belum ada UI** untuk Admin mengatur nilainya (cuma bisa diisi lewat akses DB langsung). Backend sudah siap, tinggal menambah field di form Guru kalau dibutuhkan.
+- **PIN admin kiosk** untuk keluar dari mode kiosk (disebut di prompt bagian 2: "Keluar dari mode kiosk hanya dengan PIN admin kiosk") **tidak dibangun** sebagai mekanisme terpisah — saat ini mengandalkan Screen Pinning Android (lepas pin butuh kombinasi tombol fisik/PIN perangkat, bukan PIN aplikasi). Didokumentasikan di README bagian "Menyiapkan Tablet Kiosk".
+- **Approval flow pengajuan izin guru oleh guru sendiri** (disebut opsional di prompt) **dilewati** — izin selalu diinput langsung oleh Admin/TU dengan status `disetujui`, konsisten pola Izin Siswa Tahap 3. Kolom `status` (`diajukan`/`disetujui`/`ditolak`) tetap ada di skema untuk kebutuhan nanti.
