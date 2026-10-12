@@ -45,6 +45,8 @@ import { PengaturanPresensiPage } from "@/pages/settings/PengaturanPresensiPage"
 import { IzinGuruPage } from "@/pages/kepegawaian/IzinGuruPage";
 import { RekapPresensiGuruPage } from "@/pages/kepegawaian/RekapPresensiGuruPage";
 import { BukuTamuPage } from "@/pages/kepegawaian/BukuTamuPage";
+import { MasterPelanggaranPage } from "@/pages/kesiswaan/MasterPelanggaranPage";
+import { PelanggaranPage } from "@/pages/kesiswaan/PelanggaranPage";
 
 function ThemeBootstrap() {
   useApplyTheme();
@@ -110,6 +112,12 @@ export function App() {
             </Route>
             <Route element={<RequirePermission module="rekap_presensi_guru" action="lihat" />}>
               <Route path="/presensi-guru" element={<RekapPresensiGuruPage />} />
+            </Route>
+            <Route element={<RequirePermission module="master_pelanggaran" action="lihat" />}>
+              <Route path="/kesiswaan/master-pelanggaran" element={<MasterPelanggaranPage />} />
+            </Route>
+            <Route element={<RequirePermission module="pelanggaran" action="lihat" />}>
+              <Route path="/kesiswaan/pelanggaran" element={<PelanggaranPage />} />
             </Route>
             <Route element={<RequirePermission module="pengelolaan_buku_tamu" action="lihat" />}>
               <Route path="/buku-tamu" element={<BukuTamuPage />} />

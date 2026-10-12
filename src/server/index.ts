@@ -36,6 +36,10 @@ import { guruWajahRoutes } from "./routes/guruWajah";
 import { presensiGuruRoutes } from "./routes/presensiGuru";
 import { izinGuruRoutes } from "./routes/izinGuru";
 import { tamuRoutes } from "./routes/tamu";
+import { pelanggaranKategoriRoutes } from "./routes/pelanggaranKategori";
+import { pelanggaranJenisRoutes } from "./routes/pelanggaranJenis";
+import { sanksiAmbangRoutes } from "./routes/sanksiAmbang";
+import { pelanggaranRoutes } from "./routes/pelanggaran";
 import { createDb } from "./db/client";
 import { runLogArchival } from "./cron/archiveLogs";
 import { backfillTidakHadir } from "./services/presensiGuru.service";
@@ -84,6 +88,10 @@ app.route("/guru-wajah", guruWajahRoutes);
 app.route("/presensi-guru", presensiGuruRoutes);
 app.route("/izin-guru", izinGuruRoutes);
 app.route("/tamu", tamuRoutes);
+app.route("/pelanggaran-kategori", pelanggaranKategoriRoutes);
+app.route("/pelanggaran-jenis", pelanggaranJenisRoutes);
+app.route("/sanksi-ambang", sanksiAmbangRoutes);
+app.route("/pelanggaran", pelanggaranRoutes);
 
 export default {
   fetch: app.fetch,

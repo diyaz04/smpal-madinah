@@ -12,8 +12,13 @@
 
 Semua tahap 1-4 sudah **di-deploy ke production** (`https://smp-al-madinah.smpal-madinah.workers.dev`) — migrasi skema + izin role sudah dijalankan `--remote` untuk masing-masing tahap.
 
+- **Tahap 5 (sesi 5-1) — Skema + Master Pelanggaran + Pencatatan Pelanggaran**: tabel `pelanggaran_kategori`/`pelanggaran_jenis`/`pelanggaran`/`sanksi_ambang`/`sanksi_siswa`/`tindak_lanjut`/`rekap_poin_siswa`. Master Pelanggaran (CRUD kategori/jenis/ambang sanksi, 3 tab) + Pencatatan Pelanggaran (cari siswa multi-pilih, jenis dikelompokkan per kategori, foto bukti opsional, batalkan dengan alasan, rekap poin per tahun ajaran otomatis, deteksi ambang sanksi otomatis). Role baru: tidak ada (pakai BK/Kesiswaan yang sudah ada). **Belum dideploy ke production** — migrasi skema + `migrate:permissions5` + `seed:pelanggaran` baru dijalankan `--local`.
+
 ## Sedang dikerjakan / sisa pekerjaan
 
+- **Sebelum deploy tahap 5**: jalankan `npm run db:migrate:remote`, `npm run migrate:permissions5:remote`, `npm run seed:pelanggaran:remote` (urut), baru `npm run deploy`.
+- **Modul Tindak Lanjut, Prestasi, Rekap Kesiswaan** sudah terdaftar di registry (`src/shared/modules.ts`, `implemented:false`) dan Admin sudah diberi izin penuh lewat `migrate-tahap5-permissions.ts`, tapi **halamannya belum dibangun** — tabel `tindak_lanjut` & data `sanksi_siswa`/`rekap_poin_siswa` sudah terisi otomatis dari Pencatatan Pelanggaran, tinggal dibuatkan UI-nya di sesi berikutnya.
+- **Aksi export pada modul `pelanggaran`** sudah terdaftar + diberi izin ke Kepala Sekolah, tapi tombol/endpoint-nya belum dibangun.
 - **Kiosk tahap 4 belum diuji di tablet/kamera sungguhan** — cuma lolos type-check/test/build, akurasi wajah & liveness anti-foto belum pernah dicoba nyata (lihat `DECISIONS.md` bagian Tahap 4).
 - **File jadwal asli sekolah** (`contoh-data/JADWAL KMB 2025-2026.xlsx`) belum pernah dipakai menguji parser impor Excel tahap 2 — parser baru divalidasi fixture + satu file sintetis buatan sendiri.
 - Beberapa simplifikasi yang disengaja (dicatat lengkap per-tahap di `DECISIONS.md`, bagian "Hal yang sengaja disederhanakan"), yang paling relevan untuk dikerjakan lanjut kalau diminta:
@@ -70,8 +75,15 @@ Daftar file penting supaya sesi berikutnya tidak perlu menjelajah repo. Format: 
 - `src/client/pages/kepegawaian/{IzinGuruPage,RekapPresensiGuruPage,BukuTamuPage}.tsx`; `src/client/pages/settings/{PerangkatKioskPage,PengaturanPresensiPage}.tsx`
 - `src/client/components/guru/DataWajahTab.tsx`, `src/client/components/profile/PresensiTab.tsx` (ganti PIN sendiri)
 
+### Tahap 5 — Pelanggaran & Prestasi (sesi 5-1: skema + Master Pelanggaran + Pencatatan Pelanggaran)
+- `src/shared/sanksi.ts` — `tentukanAmbangBaruTercapai()` (fungsi murni, dites tanpa DB)
+- `src/server/services/{pelanggaranKategori,pelanggaranJenis,sanksiAmbang}.service.ts` — CRUD master data (satu modul izin `master_pelanggaran` untuk ketiganya)
+- `src/server/services/pelanggaran.service.ts` — `listPelanggaran()` (scope `milik_sendiri` gabungan pelapor+wali, lihat DECISIONS.md), `createPelanggaran()` (multi-siswa, satu `db.batch()`, update rekap + deteksi ambang sanksi sekaligus), `batalkanPelanggaran()`
+- `src/client/pages/kesiswaan/{MasterPelanggaranPage,PelanggaranPage}.tsx`, `src/client/components/pelanggaran/*` (dialog kategori/jenis/ambang/pencatatan/batalkan)
+- `scripts/migrate-tahap5-permissions.ts`, `scripts/seed-pelanggaran.ts` (seed kategori/jenis/ambang default dari `DEFAULT_PELANGGARAN_JENIS`/`DEFAULT_SANKSI_AMBANG` di `constants.ts`)
+
 ## Catatan untuk sesi berikutnya
 
-- **Tahap 5 berikutnya: Pelanggaran & Prestasi.** Siapkan sebelum mulai: daftar jenis pelanggaran/bobot poin (kalau sekolah punya SOP tertulis) dan contoh kategori prestasi siswa — ditanyakan user di akhir sesi tahap 4 tapi belum dijawab.
-- Baca `DECISIONS.md` bagian paling bawah (per-tahap, diurut dari atas 1→4) untuk alasan teknis & simplifikasi yang tidak dijelaskan prompt asli — jangan ulangi riset yang sama.
+- **Sesi 5-2 (lanjutan tahap 5): Tindak Lanjut, Prestasi, Rekap Kesiswaan.** Modul sudah terdaftar di registry + izin Admin sudah disiapkan (lihat "Sedang dikerjakan" di atas) — tinggal bangun UI-nya. Siapkan juga contoh kategori prestasi siswa dari user (ditanyakan sejak akhir tahap 4, belum dijawab).
+- Baca `DECISIONS.md` bagian paling bawah (per-tahap, diurut dari atas 1→5) untuk alasan teknis & simplifikasi yang tidak dijelaskan prompt asli — jangan ulangi riset yang sama.
 - Ingatkan user untuk uji kiosk di tablet sungguhan dan setel R2 lifecycle rule `selfie/`/`tamu/` manual kalau belum (lihat "Sedang dikerjakan" di atas).

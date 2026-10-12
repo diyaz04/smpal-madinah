@@ -33,6 +33,9 @@ import {
   Tablet,
   Clock,
   CalendarCheck,
+  ListChecks,
+  HeartHandshake,
+  BarChart3,
   CircleHelp,
   type LucideIcon,
 } from "lucide-react";
@@ -72,6 +75,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Tablet,
   Clock,
   CalendarCheck,
+  ListChecks,
+  HeartHandshake,
+  BarChart3,
 };
 
 export function getModuleIcon(name: string): LucideIcon {

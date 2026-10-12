@@ -31,6 +31,9 @@ import type {
   TamuJenis,
   TamuStatusKunjungan,
   KioskDeviceStatus,
+  PelanggaranStatus,
+  SanksiSiswaStatus,
+  TindakLanjutJenis,
 } from "./constants";
 
 export interface AuthUser {
@@ -680,4 +683,99 @@ export interface PengaturanPresensi {
   retensiFotoHari: number;
   ambangKemiripanWajah: number;
   descriptorOtomatisAktif: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Tahap 5 — Pelanggaran & Prestasi
+// ---------------------------------------------------------------------------
+
+export interface PelanggaranKategoriItem {
+  id: string;
+  nama: string;
+  warna: string;
+  urutan: number;
+}
+
+export interface PelanggaranJenisItem {
+  id: string;
+  kategoriId: string;
+  kategoriNama: string;
+  nama: string;
+  poin: number;
+  deskripsi: string | null;
+  aktif: boolean;
+  bisaDihapus: boolean;
+}
+
+export interface PelanggaranJenisAktifItem {
+  id: string;
+  kategoriId: string;
+  kategoriNama: string;
+  kategoriWarna: string;
+  nama: string;
+  poin: number;
+}
+
+export interface SanksiAmbangItem {
+  id: string;
+  poinMinimal: number;
+  nama: string;
+  deskripsi: string | null;
+  urutan: number;
+}
+
+export interface PelanggaranItem {
+  id: string;
+  siswaId: string;
+  siswaNama: string;
+  rombelId: string | null;
+  rombelNama: string | null;
+  jenisId: string;
+  jenisNama: string;
+  kategoriNama: string;
+  kategoriWarna: string;
+  poin: number;
+  tanggal: string;
+  waktu: string;
+  lokasi: string | null;
+  keterangan: string | null;
+  fotoFileId: string | null;
+  pelaporUserId: string;
+  pelaporNama: string;
+  status: PelanggaranStatus;
+  alasanBatal: string | null;
+  createdAt: string;
+}
+
+export interface RekapPoinSiswaItem {
+  siswaId: string;
+  siswaNama: string;
+  rombelNama: string | null;
+  tahunAjaran: string;
+  totalPoin: number;
+  jumlahPelanggaran: number;
+  terakhirPada: string | null;
+}
+
+export interface SanksiSiswaItem {
+  id: string;
+  siswaId: string;
+  siswaNama: string;
+  tahunAjaran: string;
+  ambangId: string;
+  ambangNama: string;
+  poinMinimal: number;
+  tercapaiPada: string;
+  status: SanksiSiswaStatus;
+}
+
+export interface TindakLanjutItem {
+  id: string;
+  sanksiSiswaId: string | null;
+  pelanggaranId: string | null;
+  tanggal: string;
+  jenis: TindakLanjutJenis;
+  hasil: string | null;
+  petugasUserId: string;
+  lampiranFileId: string | null;
 }

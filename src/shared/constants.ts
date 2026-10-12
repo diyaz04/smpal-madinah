@@ -80,6 +80,7 @@ export const FILE_PREFIXES = [
   "izin-siswa",
   "wajah",
   "izin-guru",
+  "pelanggaran",
 ] as const;
 export type FilePrefix = (typeof FILE_PREFIXES)[number];
 
@@ -95,6 +96,7 @@ export const ACTIVE_FILE_PREFIXES: FilePrefix[] = [
   "tamu",
   "wajah",
   "izin-guru",
+  "pelanggaran",
 ];
 
 export const THEME_COLOR_PRESETS = [
@@ -362,3 +364,54 @@ export const DEFAULT_PENGATURAN_PRESENSI = {
     SABTU: { masuk: "07:00", pulang: "12:00" },
   } as Record<Hari, { masuk: string; pulang: string } | null>,
 };
+
+// ---------------------------------------------------------------------------
+// Tahap 5 — Pelanggaran & Prestasi
+// ---------------------------------------------------------------------------
+
+export const PELANGGARAN_STATUS_LIST = ["tercatat", "dibatalkan"] as const;
+export type PelanggaranStatus = (typeof PELANGGARAN_STATUS_LIST)[number];
+export const PELANGGARAN_STATUS_LABELS: Record<PelanggaranStatus, string> = {
+  tercatat: "Tercatat",
+  dibatalkan: "Dibatalkan",
+};
+
+export const SANKSI_SISWA_STATUS_LIST = ["belum", "proses", "selesai"] as const;
+export type SanksiSiswaStatus = (typeof SANKSI_SISWA_STATUS_LIST)[number];
+export const SANKSI_SISWA_STATUS_LABELS: Record<SanksiSiswaStatus, string> = {
+  belum: "Belum ditindaklanjuti",
+  proses: "Dalam proses",
+  selesai: "Selesai",
+};
+
+export const TINDAK_LANJUT_JENIS_LIST = [
+  "pembinaan",
+  "panggilan_ortu",
+  "home_visit",
+  "surat",
+  "lainnya",
+] as const;
+export type TindakLanjutJenis = (typeof TINDAK_LANJUT_JENIS_LIST)[number];
+export const TINDAK_LANJUT_JENIS_LABELS: Record<TindakLanjutJenis, string> = {
+  pembinaan: "Pembinaan",
+  panggilan_ortu: "Panggilan Orang Tua",
+  home_visit: "Home Visit",
+  surat: "Surat Peringatan",
+  lainnya: "Lainnya",
+};
+
+/** Seed contoh, bisa diubah Admin/BK lewat Master Pelanggaran. */
+export const DEFAULT_PELANGGARAN_JENIS = [
+  { kategori: "Ringan", nama: "Terlambat", poin: 5 },
+  { kategori: "Ringan", nama: "Tidak berseragam lengkap", poin: 10 },
+  { kategori: "Sedang", nama: "Membolos", poin: 25 },
+  { kategori: "Berat", nama: "Berkelahi", poin: 50 },
+] as const;
+
+/** Seed default ambang sanksi (urut poin) — bisa diubah Admin/BK. */
+export const DEFAULT_SANKSI_AMBANG = [
+  { poinMinimal: 25, nama: "Teguran lisan" },
+  { poinMinimal: 50, nama: "Panggilan orang tua" },
+  { poinMinimal: 75, nama: "Surat peringatan" },
+  { poinMinimal: 100, nama: "Dikembalikan ke orang tua" },
+] as const;

@@ -43,6 +43,9 @@ import {
   IZIN_GURU_STATUS_LIST,
   TAMU_JENIS_LIST,
   TAMU_STATUS_KUNJUNGAN_LIST,
+  PELANGGARAN_STATUS_LIST,
+  SANKSI_SISWA_STATUS_LIST,
+  TINDAK_LANJUT_JENIS_LIST,
 } from "../../shared/constants";
 
 const id = () =>
@@ -954,5 +957,140 @@ export const tamu = sqliteTable(
     index("tamu_tanggal_idx").on(t.tanggal),
     check("tamu_jenis_check", sql`${t.jenis} IN ('individu','instansi')`),
     check("tamu_status_kunjungan_check", sql`${t.status_kunjungan} IN ('menunggu','dilayani','selesai')`),
+  ],
+);
+
+// =============================================================================
+// Tahap 5 — Pelanggaran & Prestasi
+// =============================================================================
+
+export const pelanggaranKategori = sqliteTable(
+  "pelanggaran_kategori",
+  {
+    id: id(),
+    nama: text("nama").notNull(),
+    warna: text("warna").notNull(),
+    urutan: integer("urutan").notNull().default(0),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [index("pelanggaran_kategori_urutan_idx").on(t.urutan)],
+);
+
+export const pelanggaranJenis = sqliteTable(
+  "pelanggaran_jenis",
+  {
+    id: id(),
+    kategori_id: text("kategori_id").notNull(),
+    nama: text("nama").notNull(),
+    poin: integer("poin").notNull(),
+    deskripsi: text("deskripsi"),
+    aktif: integer("aktif", { mode: "boolean" }).notNull().default(true),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [index("pelanggaran_jenis_kategori_idx").on(t.kategori_id)],
+);
+
+export const pelanggaran = sqliteTable(
+  "pelanggaran",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    tahun_ajaran: text("tahun_ajaran").notNull(),
+    siswa_id: text("siswa_id").notNull(),
+    rombel_id: text("rombel_id"), // snapshot rombel siswa saat dicatat, bisa null kalau siswa belum punya rombel
+    jenis_id: text("jenis_id").notNull(),
+    poin: integer("poin").notNull(), // snapshot poin jenis saat dicatat
+    tanggal: text("tanggal").notNull(),
+    waktu: text("waktu").notNull(),
+    lokasi: text("lokasi"),
+    keterangan: text("keterangan"),
+    foto_file_id: text("foto_file_id"),
+    pelapor_user_id: text("pelapor_user_id").notNull(),
+    status: text("status", { enum: PELANGGARAN_STATUS_LIST }).notNull().default("tercatat"),
+    alasan_batal: text("alasan_batal"),
+    dibatalkan_oleh: text("dibatalkan_oleh"),
+    dibatalkan_pada: text("dibatalkan_pada"),
+    ...timestamps,
+  },
+  (t) => [
+    index("pelanggaran_siswa_tanggal_idx").on(t.siswa_id, t.tanggal),
+    index("pelanggaran_period_tanggal_idx").on(t.period_id, t.tanggal),
+    index("pelanggaran_rombel_tanggal_idx").on(t.rombel_id, t.tanggal),
+    index("pelanggaran_pelapor_idx").on(t.pelapor_user_id),
+    check("pelanggaran_status_check", sql`${t.status} IN ('tercatat','dibatalkan')`),
+  ],
+);
+
+export const sanksiAmbang = sqliteTable(
+  "sanksi_ambang",
+  {
+    id: id(),
+    poin_minimal: integer("poin_minimal").notNull(),
+    nama: text("nama").notNull(),
+    deskripsi: text("deskripsi"),
+    urutan: integer("urutan").notNull().default(0),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [uniqueIndex("sanksi_ambang_poin_minimal_unique").on(t.poin_minimal)],
+);
+
+export const sanksiSiswa = sqliteTable(
+  "sanksi_siswa",
+  {
+    id: id(),
+    siswa_id: text("siswa_id").notNull(),
+    tahun_ajaran: text("tahun_ajaran").notNull(),
+    ambang_id: text("ambang_id").notNull(),
+    tercapai_pada: text("tercapai_pada").notNull(),
+    status: text("status", { enum: SANKSI_SISWA_STATUS_LIST }).notNull().default("belum"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("sanksi_siswa_siswa_tahun_ambang_unique").on(t.siswa_id, t.tahun_ajaran, t.ambang_id),
+    index("sanksi_siswa_siswa_idx").on(t.siswa_id),
+    check("sanksi_siswa_status_check", sql`${t.status} IN ('belum','proses','selesai')`),
+  ],
+);
+
+export const tindakLanjut = sqliteTable(
+  "tindak_lanjut",
+  {
+    id: id(),
+    sanksi_siswa_id: text("sanksi_siswa_id"),
+    pelanggaran_id: text("pelanggaran_id"),
+    tanggal: text("tanggal").notNull(),
+    jenis: text("jenis", { enum: TINDAK_LANJUT_JENIS_LIST }).notNull(),
+    hasil: text("hasil"),
+    petugas_user_id: text("petugas_user_id").notNull(),
+    lampiran_file_id: text("lampiran_file_id"),
+    ...timestamps,
+  },
+  (t) => [
+    index("tindak_lanjut_sanksi_siswa_idx").on(t.sanksi_siswa_id),
+    index("tindak_lanjut_pelanggaran_idx").on(t.pelanggaran_id),
+    check(
+      "tindak_lanjut_jenis_check",
+      sql`${t.jenis} IN ('pembinaan','panggilan_ortu','home_visit','surat','lainnya')`,
+    ),
+  ],
+);
+
+export const rekapPoinSiswa = sqliteTable(
+  "rekap_poin_siswa",
+  {
+    id: id(),
+    siswa_id: text("siswa_id").notNull(),
+    tahun_ajaran: text("tahun_ajaran").notNull(),
+    total_poin: integer("total_poin").notNull().default(0),
+    jumlah_pelanggaran: integer("jumlah_pelanggaran").notNull().default(0),
+    terakhir_pada: text("terakhir_pada"),
+    updated_at: text("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("rekap_poin_siswa_siswa_tahun_unique").on(t.siswa_id, t.tahun_ajaran),
+    index("rekap_poin_siswa_tahun_total_idx").on(t.tahun_ajaran, t.total_poin),
   ],
 );

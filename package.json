@@ -23,6 +23,10 @@
     "seed:dummy:local": "tsx scripts/seed-dummy-tahap3.ts",
     "migrate:permissions4:local": "tsx scripts/migrate-tahap4-permissions.ts --local",
     "migrate:permissions4:remote": "tsx scripts/migrate-tahap4-permissions.ts --remote",
+    "migrate:permissions5:local": "tsx scripts/migrate-tahap5-permissions.ts --local",
+    "migrate:permissions5:remote": "tsx scripts/migrate-tahap5-permissions.ts --remote",
+    "seed:pelanggaran:local": "tsx scripts/seed-pelanggaran.ts --local",
+    "seed:pelanggaran:remote": "tsx scripts/seed-pelanggaran.ts --remote",
     "cf-typegen": "wrangler types",
     "generate:icons": "tsx scripts/generate-icons.ts",
     "test": "vitest run"
