@@ -3,6 +3,7 @@ import {
   sqliteTable,
   text,
   integer,
+  real,
   index,
   uniqueIndex,
   check,
@@ -1269,5 +1270,26 @@ export const nilaiAkhir = sqliteTable(
     uniqueIndex("nilai_akhir_unique").on(t.period_id, t.siswa_id, t.mapel_id),
     index("nilai_akhir_period_rombel_idx").on(t.period_id, t.rombel_id),
     index("nilai_akhir_siswa_period_idx").on(t.siswa_id, t.period_id),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// leger_peringkat (cache hasil peringkat Leger — dipakai Raport Tahap 6-4)
+// ---------------------------------------------------------------------------
+export const legerPeringkat = sqliteTable(
+  "leger_peringkat",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    rombel_id: text("rombel_id").notNull(),
+    siswa_id: text("siswa_id").notNull(),
+    jumlah_nilai: integer("jumlah_nilai").notNull(),
+    rata_rata: real("rata_rata"),
+    peringkat: integer("peringkat").notNull(),
+    dihitung_pada: text("dihitung_pada").notNull(),
+  },
+  (t) => [
+    uniqueIndex("leger_peringkat_period_siswa_unique").on(t.period_id, t.siswa_id),
+    index("leger_peringkat_period_rombel_idx").on(t.period_id, t.rombel_id),
   ],
 );

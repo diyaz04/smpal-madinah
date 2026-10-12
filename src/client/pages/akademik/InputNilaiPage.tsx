@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImportNilaiDialog } from "@/components/nilai/ImportNilaiDialog";
+import { EditDeskripsiDialog } from "@/components/nilai/EditDeskripsiDialog";
 import { usePilihanAmpuanQuery, useInputNilaiKonteks, useSimpanNilai } from "@/hooks/useNilai";
 import { usePermission } from "@/hooks/usePermission";
 import { hitungNilaiAkhir, tentukanPredikat } from "@shared/nilai";
+import { pilihTpCapaianDefault, buildDeskripsiCapaian } from "@shared/deskripsi";
 import { ApiError } from "@/lib/api";
 import type { InputNilaiSiswaRow } from "@shared/types";
 
@@ -24,6 +26,7 @@ export function InputNilaiPage() {
   const simpanNilai = useSimpanNilai();
   const [rows, setRows] = useState<InputNilaiSiswaRow[]>([]);
   const [importOpen, setImportOpen] = useState(false);
+  const [editingDeskripsi, setEditingDeskripsi] = useState<InputNilaiSiswaRow | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
@@ -46,7 +49,15 @@ export function InputNilaiPage() {
       konteks.bobot,
       konteks.pembulatanDesimal,
     );
-    return { ...row, nilaiAkhir, predikat: tentukanPredikat(nilaiAkhir, konteks.predikatConfig) };
+    const predikat = tentukanPredikat(nilaiAkhir, konteks.predikatConfig);
+
+    if (row.deskripsiManual) return { ...row, nilaiAkhir, predikat };
+
+    const tpCapaianId = pilihTpCapaianDefault(tpIds.map((tpId) => ({ tpId, nilai: row.nilaiTp[tpId] ?? null })));
+    const tpDeskripsi = konteks.tpList.find((tp) => tp.id === tpCapaianId)?.deskripsi;
+    const deskripsi = tpCapaianId && predikat && tpDeskripsi ? buildDeskripsiCapaian(predikat, tpDeskripsi) : null;
+
+    return { ...row, nilaiAkhir, predikat, tpCapaianId, deskripsi };
   }
 
   function updateCell(siswaId: string, columnKey: string, value: string) {
@@ -187,6 +198,7 @@ export function InputNilaiPage() {
                       <th className="p-2 text-center">SAS</th>
                       <th className="p-2 text-center">Nilai Akhir</th>
                       <th className="p-2 text-center">Predikat</th>
+                      <th className="p-2 text-left">Deskripsi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -246,6 +258,18 @@ export function InputNilaiPage() {
                         </td>
                         <td className="p-2 text-center font-medium text-foreground">{row.nilaiAkhir ?? "—"}</td>
                         <td className="p-2 text-center text-muted-foreground">{row.predikat ?? "belum lengkap"}</td>
+                        <td className="p-2 text-left">
+                          <button
+                            type="button"
+                            disabled={!can(MODULE, "tambah")}
+                            onClick={() => setEditingDeskripsi(row)}
+                            className="max-w-xs truncate text-left text-muted-foreground hover:text-foreground hover:underline disabled:no-underline"
+                            title={row.deskripsi ?? "Belum ada deskripsi"}
+                          >
+                            {row.deskripsi ?? "—"}
+                            {row.deskripsiManual && " (manual)"}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -265,6 +289,14 @@ export function InputNilaiPage() {
                 tpList={konteks.tpList}
                 rows={rows}
                 onTerapkan={(hasil) => setRows(hasil.map(recompute))}
+              />
+
+              <EditDeskripsiDialog
+                row={editingDeskripsi}
+                rombelId={rombelId}
+                mapelId={mapelId}
+                tpList={konteks.tpList}
+                onOpenChange={(o) => !o && setEditingDeskripsi(null)}
               />
             </>
           )}

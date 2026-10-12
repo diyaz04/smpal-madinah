@@ -430,8 +430,8 @@ export const MODULES: ModuleDefinition[] = [
     grup: "Akademik",
     ikon: "Rows3",
     path: "/akademik/leger",
-    aksi: ["lihat", "export"],
-    implemented: false,
+    aksi: ["lihat", "tambah", "export"],
+    implemented: true,
     tahap: 6,
   },
   {

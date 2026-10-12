@@ -12,6 +12,9 @@
  * ada). Modul `raport_kelas`/`leger`/`cetak_raport` baru terdaftar di
  * registry (UI menyusul sesi 6-2/6-3/6-4) — Admin & Kepala Sekolah tetap
  * diberi akses sekarang supaya tidak perlu migrasi izin lagi nanti.
+ * Sesi 6-2: `leger` UI sudah ada (gabung Monitoring Kelengkapan + Leger),
+ * aksi `tambah` (kirim notifikasi pengingat) ditambahkan ke Admin & Wali
+ * Kelas (bukan Kepala Sekolah — dia cuma "lihat semua + export").
  */
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -49,14 +52,14 @@ const GRANTS: Grant[] = [
   { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "tujuan_pembelajaran", actions: ["lihat", "tambah", "ubah", "hapus"], scope: "semua" },
   { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "input_nilai", actions: ["lihat", "tambah"], scope: "semua" },
   { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "raport_kelas", actions: ["lihat", "export", "approve"], scope: "semua" },
-  { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "leger", actions: ["lihat", "export"], scope: "semua" },
+  { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "leger", actions: ["lihat", "tambah", "export"], scope: "semua" },
   { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "cetak_raport", actions: ["lihat", "export"], scope: "semua" },
 
   { roleName: SYSTEM_ROLE_NAMES.GURU, module: "tujuan_pembelajaran", actions: ["lihat", "tambah", "ubah", "hapus"], scope: "milik_sendiri" },
   { roleName: SYSTEM_ROLE_NAMES.GURU, module: "input_nilai", actions: ["lihat", "tambah"], scope: "milik_sendiri" },
 
   { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "raport_kelas", actions: ["lihat", "export", "approve"], scope: "milik_sendiri" },
-  { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "leger", actions: ["lihat", "export"], scope: "milik_sendiri" },
+  { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "leger", actions: ["lihat", "tambah", "export"], scope: "milik_sendiri" },
   { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "cetak_raport", actions: ["lihat", "export"], scope: "milik_sendiri" },
 
   { roleName: SYSTEM_ROLE_NAMES.KEPALA_SEKOLAH, module: "tujuan_pembelajaran", actions: ["lihat"], scope: "semua" },

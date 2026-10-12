@@ -54,6 +54,7 @@ import { PrestasiPage } from "@/pages/kesiswaan/PrestasiPage";
 import { PengaturanRaportPage } from "@/pages/settings/PengaturanRaportPage";
 import { TujuanPembelajaranPage } from "@/pages/akademik/TujuanPembelajaranPage";
 import { InputNilaiPage } from "@/pages/akademik/InputNilaiPage";
+import { LegerPage } from "@/pages/akademik/LegerPage";
 
 function ThemeBootstrap() {
   useApplyTheme();
@@ -144,6 +145,9 @@ export function App() {
             </Route>
             <Route element={<RequirePermission module="input_nilai" action="lihat" />}>
               <Route path="/akademik/input-nilai" element={<InputNilaiPage />} />
+            </Route>
+            <Route element={<RequirePermission module="leger" action="lihat" />}>
+              <Route path="/akademik/leger" element={<LegerPage />} />
             </Route>
             <Route element={<RequirePermission module="pengelolaan_buku_tamu" action="lihat" />}>
               <Route path="/buku-tamu" element={<BukuTamuPage />} />

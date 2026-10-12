@@ -914,6 +914,9 @@ export interface InputNilaiSiswaRow {
   nilaiSas: number | null;
   nilaiAkhir: number | null;
   predikat: string | null;
+  deskripsi: string | null;
+  deskripsiManual: boolean;
+  tpCapaianId: string | null;
 }
 
 export interface InputNilaiKonteks {
@@ -923,4 +926,38 @@ export interface InputNilaiKonteks {
   pembulatanDesimal: number;
   predikatConfig: PredikatRange[];
   terkunci: boolean;
+}
+
+export type StatusKelengkapanNilai = "lengkap" | "sebagian" | "belum";
+
+export interface MonitoringKelengkapanCell {
+  rombelId: string;
+  rombelNama: string;
+  mapelId: string;
+  mapelNama: string;
+  guruNama: string[];
+  totalSiswa: number;
+  jumlahBelumNilai: number;
+  status: StatusKelengkapanNilai;
+}
+
+export interface LegerMapelColumn {
+  id: string;
+  nama: string;
+  urutan: number;
+}
+
+export interface LegerSiswaRow {
+  siswaId: string;
+  namaLengkap: string;
+  nomorAbsen: number | null;
+  nilaiPerMapel: Record<string, number | null>;
+  jumlah: number;
+  rataRata: number | null;
+  peringkat: number | null;
+}
+
+export interface LegerKelas {
+  mapelColumns: LegerMapelColumn[];
+  rows: LegerSiswaRow[];
 }

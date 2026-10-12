@@ -47,6 +47,7 @@ import { prestasiRoutes } from "./routes/prestasi";
 import { raportPengaturanRoutes } from "./routes/raportPengaturan";
 import { tujuanPembelajaranRoutes } from "./routes/tujuanPembelajaran";
 import { nilaiRoutes } from "./routes/nilai";
+import { legerRoutes } from "./routes/leger";
 import { createDb } from "./db/client";
 import { runLogArchival } from "./cron/archiveLogs";
 import { backfillTidakHadir } from "./services/presensiGuru.service";
@@ -106,6 +107,7 @@ app.route("/prestasi", prestasiRoutes);
 app.route("/raport-pengaturan", raportPengaturanRoutes);
 app.route("/tujuan-pembelajaran", tujuanPembelajaranRoutes);
 app.route("/nilai", nilaiRoutes);
+app.route("/leger", legerRoutes);
 
 export default {
   fetch: app.fetch,

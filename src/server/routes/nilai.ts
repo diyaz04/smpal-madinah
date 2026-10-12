@@ -2,7 +2,14 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { simpanNilaiSchema } from "../../shared/schemas/nilai.schema";
-import { resolveAmpuan, assertAmpu, getInputNilaiKonteks, simpanNilai } from "../services/nilai.service";
+import { updateDeskripsiSchema } from "../../shared/schemas/deskripsiNilai.schema";
+import {
+  resolveAmpuan,
+  assertAmpu,
+  getInputNilaiKonteks,
+  simpanNilai,
+  updateDeskripsiCapaian,
+} from "../services/nilai.service";
 import { logActivity } from "../services/activityLog.service";
 import { requirePermission } from "../middleware/requirePermission";
 import { resolvePeriodId } from "../lib/period";
@@ -54,4 +61,17 @@ export const nilaiRoutes = new Hono<AppEnv>()
     });
 
     return c.json(result);
+  })
+
+  .put("/deskripsi", requirePermission(MODULE, "tambah"), zValidator("json", updateDeskripsiSchema), async (c) => {
+    const db = c.get("db");
+    const actor = c.get("user")!;
+    const scope = c.get("permissionScope")!;
+    const periodId = await resolvePeriodId(c);
+    const input = c.req.valid("json");
+
+    await assertAmpu(db, actor, scope, periodId, input.rombelId, input.mapelId);
+    await updateDeskripsiCapaian(db, input, periodId);
+
+    return c.json({ ok: true });
   });
