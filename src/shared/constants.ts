@@ -498,3 +498,30 @@ export const DEFAULT_RAPORT_PENGATURAN = {
   tampilkanPeringkat: false,
   fasePerTingkat: { VII: DEFAULT_FASE, VIII: DEFAULT_FASE, IX: DEFAULT_FASE } as Record<Tingkat, string>,
 };
+
+export const EKSKUL_PREDIKAT_LIST = ["sangat_baik", "baik", "cukup", "kurang"] as const;
+export type EkskulPredikat = (typeof EKSKUL_PREDIKAT_LIST)[number];
+export const EKSKUL_PREDIKAT_LABELS: Record<EkskulPredikat, string> = {
+  sangat_baik: "Sangat Baik",
+  baik: "Baik",
+  cukup: "Cukup",
+  kurang: "Kurang",
+};
+
+export const KETERANGAN_KENAIKAN_LIST = ["naik", "tidak_naik", "lulus"] as const;
+export type KeteranganKenaikan = (typeof KETERANGAN_KENAIKAN_LIST)[number];
+export const KETERANGAN_KENAIKAN_LABELS: Record<KeteranganKenaikan, string> = {
+  naik: "Naik Kelas",
+  tidak_naik: "Tidak Naik Kelas",
+  lulus: "Lulus",
+};
+
+export const STATUS_RAPORT_SISWA_LIST = ["draf", "final"] as const;
+export type StatusRaportSiswa = (typeof STATUS_RAPORT_SISWA_LIST)[number];
+export const STATUS_RAPORT_SISWA_LABELS: Record<StatusRaportSiswa, string> = {
+  draf: "Draf",
+  final: "Final (Terkunci)",
+};
+
+/** Urutan tingkat berikutnya saat naik kelas — IX tidak naik ke apa pun, statusnya "lulus". */
+export const TINGKAT_BERIKUTNYA: Record<Tingkat, Tingkat | null> = { VII: "VIII", VIII: "IX", IX: null };

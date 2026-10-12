@@ -1,17 +1,41 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { TINGKAT_LIST } from "@shared/constants";
 import { useRaportPengaturanQuery, useUpdateRaportPengaturan } from "@/hooks/useRaportPengaturan";
+import { useEkskulQuery, useCreateEkskul, useUpdateEkskul, useDeleteEkskul } from "@/hooks/useEkskul";
+import {
+  useCatatanTemplateQuery,
+  useCreateCatatanTemplate,
+  useUpdateCatatanTemplate,
+  useDeleteCatatanTemplate,
+} from "@/hooks/useCatatanTemplate";
+import { useGuruQuery } from "@/hooks/useGuru";
+import { usePermission } from "@/hooks/usePermission";
 import { ApiError } from "@/lib/api";
-import type { RaportPengaturan } from "@shared/types";
+import type { RaportPengaturan, EkskulItem, CatatanTemplateItem } from "@shared/types";
 
-export function PengaturanRaportPage() {
+const MODULE = "pengaturan_raport";
+
+function UmumTab() {
   const { data, isLoading } = useRaportPengaturanQuery();
   const update = useUpdateRaportPengaturan();
   const [form, setForm] = useState<RaportPengaturan | null>(null);
@@ -37,14 +61,10 @@ export function PengaturanRaportPage() {
     );
   }
 
-  if (isLoading || !form) {
-    return <Skeleton className="h-64 w-full" />;
-  }
+  if (isLoading || !form) return <Skeleton className="h-64 w-full" />;
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-xl font-semibold text-foreground">Pengaturan Raport</h1>
-
       <div className="space-y-4 rounded-xl border border-border bg-card p-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-foreground">
@@ -53,27 +73,15 @@ export function PengaturanRaportPage() {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <span className="mb-1 block text-xs text-muted-foreground">Rata-rata TP (%)</span>
-              <Input
-                type="number"
-                value={form.bobotTp}
-                onChange={(e) => setForm({ ...form, bobotTp: Number(e.target.value) })}
-              />
+              <Input type="number" value={form.bobotTp} onChange={(e) => setForm({ ...form, bobotTp: Number(e.target.value) })} />
             </div>
             <div>
               <span className="mb-1 block text-xs text-muted-foreground">STS (%)</span>
-              <Input
-                type="number"
-                value={form.bobotSts}
-                onChange={(e) => setForm({ ...form, bobotSts: Number(e.target.value) })}
-              />
+              <Input type="number" value={form.bobotSts} onChange={(e) => setForm({ ...form, bobotSts: Number(e.target.value) })} />
             </div>
             <div>
               <span className="mb-1 block text-xs text-muted-foreground">SAS (%)</span>
-              <Input
-                type="number"
-                value={form.bobotSas}
-                onChange={(e) => setForm({ ...form, bobotSas: Number(e.target.value) })}
-              />
+              <Input type="number" value={form.bobotSas} onChange={(e) => setForm({ ...form, bobotSas: Number(e.target.value) })} />
             </div>
           </div>
           <p className={`mt-1 text-xs ${totalBobot === 100 ? "text-muted-foreground" : "text-destructive"}`}>
@@ -96,19 +104,11 @@ export function PengaturanRaportPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Tempat Raport</label>
-            <Input
-              value={form.tempatRaport ?? ""}
-              onChange={(e) => setForm({ ...form, tempatRaport: e.target.value })}
-              placeholder="Jakarta"
-            />
+            <Input value={form.tempatRaport ?? ""} onChange={(e) => setForm({ ...form, tempatRaport: e.target.value })} placeholder="Jakarta" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Tanggal Raport</label>
-            <Input
-              type="date"
-              value={form.tanggalRaport ?? ""}
-              onChange={(e) => setForm({ ...form, tanggalRaport: e.target.value })}
-            />
+            <Input type="date" value={form.tanggalRaport ?? ""} onChange={(e) => setForm({ ...form, tanggalRaport: e.target.value })} />
           </div>
         </div>
 
@@ -130,10 +130,7 @@ export function PengaturanRaportPage() {
 
         <div className="flex items-center justify-between rounded-lg border border-border p-3">
           <label className="text-sm font-medium text-foreground">Tampilkan Peringkat di Raport</label>
-          <Switch
-            checked={form.tampilkanPeringkat}
-            onCheckedChange={(v) => setForm({ ...form, tampilkanPeringkat: v })}
-          />
+          <Switch checked={form.tampilkanPeringkat} onCheckedChange={(v) => setForm({ ...form, tampilkanPeringkat: v })} />
         </div>
       </div>
 
@@ -141,6 +138,302 @@ export function PengaturanRaportPage() {
         {update.isPending && <Loader2 className="animate-spin" />}
         Simpan
       </Button>
+    </div>
+  );
+}
+
+function EkskulRow({ item }: { item: EkskulItem }) {
+  const { can } = usePermission();
+  const { data: guruData } = useGuruQuery({ page: 1, pageSize: 100, search: "", status: "active" });
+  const [editing, setEditing] = useState(false);
+  const [nama, setNama] = useState(item.nama);
+  const [pembinaGuruId, setPembinaGuruId] = useState(item.pembinaGuruId ?? "__none");
+  const [aktif, setAktif] = useState(item.aktif);
+  const [deleting, setDeleting] = useState(false);
+  const update = useUpdateEkskul(item.id);
+  const del = useDeleteEkskul();
+
+  function handleSave() {
+    update.mutate(
+      { nama, pembinaGuruId: pembinaGuruId === "__none" ? null : pembinaGuruId, aktif },
+      {
+        onSuccess: () => {
+          toast.success("Ekskul diperbarui.");
+          setEditing(false);
+        },
+        onError: (err) => toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan."),
+      },
+    );
+  }
+
+  function confirmDelete() {
+    del.mutate(item.id, {
+      onSuccess: () => toast.success("Ekskul dihapus."),
+      onError: (err) => toast.error(err instanceof ApiError ? err.message : "Gagal menghapus."),
+      onSettled: () => setDeleting(false),
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
+        <Input value={nama} onChange={(e) => setNama(e.target.value)} className="w-40" />
+        <Select value={pembinaGuruId} onValueChange={setPembinaGuruId}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Pembina (opsional)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none">Tanpa pembina</SelectItem>
+            {(guruData?.items ?? []).map((g) => (
+              <SelectItem key={g.id} value={g.id}>
+                {g.namaLengkap}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Switch checked={aktif} onCheckedChange={setAktif} />
+        <Button size="sm" onClick={handleSave} disabled={update.isPending}>
+          Simpan
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
+          Batal
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border p-2">
+      <div className="flex items-center gap-2">
+        <p className="font-medium text-foreground">{item.nama}</p>
+        <span className="text-sm text-muted-foreground">{item.pembinaNama ?? "Tanpa pembina"}</span>
+        {!item.aktif && <Badge variant="outline">Nonaktif</Badge>}
+      </div>
+      <div className="flex gap-1">
+        {can(MODULE, "ubah") && (
+          <Button size="icon-sm" variant="ghost" onClick={() => setEditing(true)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {can(MODULE, "hapus") && item.bisaDihapus && (
+          <Button size="icon-sm" variant="ghost" className="text-destructive" onClick={() => setDeleting(true)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+
+      <AlertDialog open={deleting} onOpenChange={setDeleting}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus ekskul ini?</AlertDialogTitle>
+            <AlertDialogDescription>"{item.nama}" akan dihapus permanen.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Hapus</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function EkskulTab() {
+  const { can } = usePermission();
+  const { data, isLoading } = useEkskulQuery();
+  const { data: guruData } = useGuruQuery({ page: 1, pageSize: 100, search: "", status: "active" });
+  const createEkskul = useCreateEkskul();
+  const [nama, setNama] = useState("");
+  const [pembinaGuruId, setPembinaGuruId] = useState("__none");
+
+  function handleTambah() {
+    if (!nama.trim()) {
+      toast.error("Nama ekskul wajib diisi.");
+      return;
+    }
+    createEkskul.mutate(
+      { nama, pembinaGuruId: pembinaGuruId === "__none" ? null : pembinaGuruId, aktif: true },
+      {
+        onSuccess: () => {
+          toast.success("Ekskul ditambahkan.");
+          setNama("");
+          setPembinaGuruId("__none");
+        },
+        onError: (err) => toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan."),
+      },
+    );
+  }
+
+  return (
+    <div className="max-w-2xl space-y-3">
+      {isLoading ? (
+        <Skeleton className="h-32 w-full" />
+      ) : (data?.items.length ?? 0) === 0 ? (
+        <p className="text-sm text-muted-foreground">Belum ada ekskul.</p>
+      ) : (
+        <div className="space-y-2">
+          {data!.items.map((item) => (
+            <EkskulRow key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+
+      {can(MODULE, "tambah") && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border p-3">
+          <Input value={nama} onChange={(e) => setNama(e.target.value)} placeholder="Nama ekskul" className="w-40" />
+          <Select value={pembinaGuruId} onValueChange={setPembinaGuruId}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Pembina (opsional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none">Tanpa pembina</SelectItem>
+              {(guruData?.items ?? []).map((g) => (
+                <SelectItem key={g.id} value={g.id}>
+                  {g.namaLengkap}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={handleTambah} disabled={createEkskul.isPending}>
+            <Plus className="h-4 w-4" /> Tambah
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BankKalimatRow({ item }: { item: CatatanTemplateItem }) {
+  const { can } = usePermission();
+  const [editing, setEditing] = useState(false);
+  const [teks, setTeks] = useState(item.teks);
+  const update = useUpdateCatatanTemplate(item.id);
+  const del = useDeleteCatatanTemplate();
+
+  function handleSave() {
+    update.mutate({ teks }, {
+      onSuccess: () => {
+        toast.success("Template diperbarui.");
+        setEditing(false);
+      },
+      onError: (err) => toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan."),
+    });
+  }
+
+  function handleDelete() {
+    del.mutate(item.id, {
+      onSuccess: () => toast.success("Template dihapus."),
+      onError: (err) => toast.error(err instanceof ApiError ? err.message : "Gagal menghapus."),
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-border p-2">
+        <Input value={teks} onChange={(e) => setTeks(e.target.value)} className="flex-1" />
+        <Button size="sm" onClick={handleSave} disabled={update.isPending}>
+          Simpan
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
+          Batal
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-2">
+      <p className="text-sm text-foreground">{item.teks}</p>
+      <div className="flex gap-1">
+        {can(MODULE, "ubah") && (
+          <Button size="icon-sm" variant="ghost" onClick={() => setEditing(true)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {can(MODULE, "hapus") && (
+          <Button size="icon-sm" variant="ghost" className="text-destructive" onClick={handleDelete}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BankKalimatTab() {
+  const { can } = usePermission();
+  const { data, isLoading } = useCatatanTemplateQuery();
+  const createTemplate = useCreateCatatanTemplate();
+  const [teks, setTeks] = useState("");
+
+  function handleTambah() {
+    if (!teks.trim()) {
+      toast.error("Teks wajib diisi.");
+      return;
+    }
+    createTemplate.mutate({ teks }, {
+      onSuccess: () => {
+        toast.success("Template ditambahkan.");
+        setTeks("");
+      },
+      onError: (err) => toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan."),
+    });
+  }
+
+  return (
+    <div className="max-w-2xl space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Pakai <code>[nama]</code> di dalam teks — akan diganti nama panggilan siswa saat dipilih di Catatan Pendidik.
+      </p>
+      {isLoading ? (
+        <Skeleton className="h-32 w-full" />
+      ) : (data?.items.length ?? 0) === 0 ? (
+        <p className="text-sm text-muted-foreground">Belum ada template kalimat.</p>
+      ) : (
+        <div className="space-y-2">
+          {data!.items.map((item) => (
+            <BankKalimatRow key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+
+      {can(MODULE, "tambah") && (
+        <div className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3">
+          <Input
+            value={teks}
+            onChange={(e) => setTeks(e.target.value)}
+            placeholder="[nama] menunjukkan sikap yang baik selama semester ini."
+            className="flex-1"
+          />
+          <Button size="sm" onClick={handleTambah} disabled={createTemplate.isPending}>
+            <Plus className="h-4 w-4" /> Tambah
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function PengaturanRaportPage() {
+  return (
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-foreground">Pengaturan Raport</h1>
+      <Tabs defaultValue="umum">
+        <TabsList>
+          <TabsTrigger value="umum">Umum</TabsTrigger>
+          <TabsTrigger value="ekskul">Ekskul</TabsTrigger>
+          <TabsTrigger value="bank-kalimat">Bank Kalimat</TabsTrigger>
+        </TabsList>
+        <TabsContent value="umum">
+          <UmumTab />
+        </TabsContent>
+        <TabsContent value="ekskul">
+          <EkskulTab />
+        </TabsContent>
+        <TabsContent value="bank-kalimat">
+          <BankKalimatTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

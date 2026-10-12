@@ -199,16 +199,7 @@ export async function deletePrestasi(db: Database, id: string): Promise<void> {
 }
 
 /** Maks MAKS_PRESTASI_RAPORT prestasi tampil_di_raport urut tingkat tertinggi lalu terbaru — dipakai Tahap 6. */
-export async function getPrestasiRaport(db: Database, siswaId: string, periodId: string): Promise<PrestasiRaportItem[]> {
-  const rows = await db.query.prestasi.findMany({
-    where: and(
-      eq(prestasi.siswa_id, siswaId),
-      eq(prestasi.period_id, periodId),
-      eq(prestasi.tampil_di_raport, true),
-      isNull(prestasi.deleted_at),
-    ),
-  });
-
+function urutkanDanPotongPrestasiRaport(rows: (typeof prestasi.$inferSelect)[]): PrestasiRaportItem[] {
   return rows
     .sort((a, b) => {
       const urutanDiff = PRESTASI_TINGKAT_URUTAN[b.tingkat] - PRESTASI_TINGKAT_URUTAN[a.tingkat];
@@ -221,5 +212,48 @@ export async function getPrestasiRaport(db: Database, siswaId: string, periodId:
       tingkat: r.tingkat,
       tanggal: r.tanggal,
     }));
+}
+
+export async function getPrestasiRaport(db: Database, siswaId: string, periodId: string): Promise<PrestasiRaportItem[]> {
+  const rows = await db.query.prestasi.findMany({
+    where: and(
+      eq(prestasi.siswa_id, siswaId),
+      eq(prestasi.period_id, periodId),
+      eq(prestasi.tampil_di_raport, true),
+      isNull(prestasi.deleted_at),
+    ),
+  });
+  return urutkanDanPotongPrestasiRaport(rows);
+}
+
+/** Versi batch `getPrestasiRaport()` — satu query untuk banyak siswa (dipakai Raport Kelas), bukan N query per siswa. */
+export async function getPrestasiRaportBatch(
+  db: Database,
+  siswaIds: string[],
+  periodId: string,
+): Promise<Map<string, PrestasiRaportItem[]>> {
+  if (siswaIds.length === 0) return new Map();
+  const rows = await db
+    .select()
+    .from(prestasi)
+    .where(
+      and(
+        sql`${prestasi.siswa_id} IN ${siswaIds}`,
+        eq(prestasi.period_id, periodId),
+        eq(prestasi.tampil_di_raport, true),
+        isNull(prestasi.deleted_at),
+      ),
+    );
+
+  const bySiswa = new Map<string, (typeof prestasi.$inferSelect)[]>();
+  for (const r of rows) {
+    const arr = bySiswa.get(r.siswa_id) ?? [];
+    arr.push(r);
+    bySiswa.set(r.siswa_id, arr);
+  }
+
+  const hasil = new Map<string, PrestasiRaportItem[]>();
+  for (const siswaId of siswaIds) hasil.set(siswaId, urutkanDanPotongPrestasiRaport(bySiswa.get(siswaId) ?? []));
+  return hasil;
 }
 

@@ -51,6 +51,9 @@ import {
   PRESTASI_TINGKAT_LIST,
   PRESTASI_JENIS_LIST,
   NILAI_UJIAN_JENIS_LIST,
+  EKSKUL_PREDIKAT_LIST,
+  KETERANGAN_KENAIKAN_LIST,
+  STATUS_RAPORT_SISWA_LIST,
 } from "../../shared/constants";
 
 const id = () =>
@@ -1291,5 +1294,79 @@ export const legerPeringkat = sqliteTable(
   (t) => [
     uniqueIndex("leger_peringkat_period_siswa_unique").on(t.period_id, t.siswa_id),
     index("leger_peringkat_period_rombel_idx").on(t.period_id, t.rombel_id),
+  ],
+);
+
+// =============================================================================
+// Tahap 6 (sesi 6-3) — Data Raport Wali Kelas + Kunci Raport
+// =============================================================================
+
+export const ekskul = sqliteTable(
+  "ekskul",
+  {
+    id: id(),
+    nama: text("nama").notNull(),
+    pembina_guru_id: text("pembina_guru_id"),
+    aktif: integer("aktif", { mode: "boolean" }).notNull().default(true),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [index("ekskul_pembina_idx").on(t.pembina_guru_id)],
+);
+
+export const ekskulNilai = sqliteTable(
+  "ekskul_nilai",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    siswa_id: text("siswa_id").notNull(),
+    ekskul_id: text("ekskul_id").notNull(),
+    predikat: text("predikat", { enum: EKSKUL_PREDIKAT_LIST }).notNull(),
+    keterangan: text("keterangan"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("ekskul_nilai_unique").on(t.period_id, t.siswa_id, t.ekskul_id),
+    index("ekskul_nilai_period_ekskul_idx").on(t.period_id, t.ekskul_id),
+    check("ekskul_nilai_predikat_check", sql`${t.predikat} IN ('sangat_baik','baik','cukup','kurang')`),
+  ],
+);
+
+/** Bank kalimat Catatan Pendidik — global, bukan per periode. `[nama]` diganti nama panggilan siswa saat dipakai. */
+export const catatanTemplate = sqliteTable("catatan_template", {
+  id: id(),
+  teks: text("teks").notNull(),
+  ...timestamps,
+  ...softDelete,
+});
+
+export const raportSiswa = sqliteTable(
+  "raport_siswa",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    siswa_id: text("siswa_id").notNull(),
+    rombel_id: text("rombel_id").notNull(),
+    catatan_pendidik: text("catatan_pendidik"),
+    keterangan_kenaikan: text("keterangan_kenaikan", { enum: KETERANGAN_KENAIKAN_LIST }),
+    kenaikan_ke_kelas: text("kenaikan_ke_kelas"),
+    override_sakit: integer("override_sakit"),
+    override_izin: integer("override_izin"),
+    override_alpa: integer("override_alpa"),
+    alasan_override_kehadiran: text("alasan_override_kehadiran"),
+    status: text("status", { enum: STATUS_RAPORT_SISWA_LIST }).notNull().default("draf"),
+    kode_verifikasi: text("kode_verifikasi"),
+    dikunci_pada: text("dikunci_pada"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("raport_siswa_period_siswa_unique").on(t.period_id, t.siswa_id),
+    uniqueIndex("raport_siswa_kode_verifikasi_unique").on(t.kode_verifikasi),
+    index("raport_siswa_period_rombel_idx").on(t.period_id, t.rombel_id),
+    check("raport_siswa_status_check", sql`${t.status} IN ('draf','final')`),
+    check(
+      "raport_siswa_keterangan_kenaikan_check",
+      sql`${t.keterangan_kenaikan} IS NULL OR ${t.keterangan_kenaikan} IN ('naik','tidak_naik','lulus')`,
+    ),
   ],
 );

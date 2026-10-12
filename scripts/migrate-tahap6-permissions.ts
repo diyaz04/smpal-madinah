@@ -15,6 +15,13 @@
  * Sesi 6-2: `leger` UI sudah ada (gabung Monitoring Kelengkapan + Leger),
  * aksi `tambah` (kirim notifikasi pengingat) ditambahkan ke Admin & Wali
  * Kelas (bukan Kepala Sekolah — dia cuma "lihat semua + export").
+ * Sesi 6-3: `raport_kelas` UI sudah ada (ekskul, prestasi, kehadiran,
+ * catatan, kenaikan kelas, finalisasi) — aksi `tambah`/`ubah` ditambahkan
+ * ke Admin & Wali Kelas. Guru (bukan wali) dapat grant minimal supaya
+ * pembina ekskul bisa mengisi nilai ekskulnya sendiri (dicek service-level,
+ * lihat `assertBisaIsiEkskul()`). `pengaturan_raport` aksi `tambah`/`hapus`
+ * ditambahkan untuk Admin kelola master Ekskul + bank kalimat Catatan
+ * Pendidik.
  */
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -48,17 +55,18 @@ interface Grant {
 }
 
 const GRANTS: Grant[] = [
-  { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "pengaturan_raport", actions: ["lihat", "ubah"], scope: "semua" },
+  { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "pengaturan_raport", actions: ["lihat", "tambah", "ubah", "hapus"], scope: "semua" },
   { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "tujuan_pembelajaran", actions: ["lihat", "tambah", "ubah", "hapus"], scope: "semua" },
   { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "input_nilai", actions: ["lihat", "tambah"], scope: "semua" },
-  { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "raport_kelas", actions: ["lihat", "export", "approve"], scope: "semua" },
+  { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "raport_kelas", actions: ["lihat", "tambah", "ubah", "export", "approve"], scope: "semua" },
   { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "leger", actions: ["lihat", "tambah", "export"], scope: "semua" },
   { roleName: SYSTEM_ROLE_NAMES.ADMIN, module: "cetak_raport", actions: ["lihat", "export"], scope: "semua" },
 
   { roleName: SYSTEM_ROLE_NAMES.GURU, module: "tujuan_pembelajaran", actions: ["lihat", "tambah", "ubah", "hapus"], scope: "milik_sendiri" },
   { roleName: SYSTEM_ROLE_NAMES.GURU, module: "input_nilai", actions: ["lihat", "tambah"], scope: "milik_sendiri" },
+  { roleName: SYSTEM_ROLE_NAMES.GURU, module: "raport_kelas", actions: ["lihat", "tambah"], scope: "milik_sendiri" },
 
-  { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "raport_kelas", actions: ["lihat", "export", "approve"], scope: "milik_sendiri" },
+  { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "raport_kelas", actions: ["lihat", "tambah", "ubah", "export", "approve"], scope: "milik_sendiri" },
   { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "leger", actions: ["lihat", "tambah", "export"], scope: "milik_sendiri" },
   { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "cetak_raport", actions: ["lihat", "export"], scope: "milik_sendiri" },
 

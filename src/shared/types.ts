@@ -37,6 +37,9 @@ import type {
   PrestasiBidang,
   PrestasiTingkat,
   PrestasiJenis,
+  EkskulPredikat,
+  KeteranganKenaikan,
+  StatusRaportSiswa,
 } from "./constants";
 
 export interface AuthUser {
@@ -960,4 +963,69 @@ export interface LegerSiswaRow {
 export interface LegerKelas {
   mapelColumns: LegerMapelColumn[];
   rows: LegerSiswaRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Tahap 6 (sesi 6-3) — Data Raport Wali Kelas + Kunci Raport
+// ---------------------------------------------------------------------------
+
+export interface EkskulItem {
+  id: string;
+  nama: string;
+  pembinaGuruId: string | null;
+  pembinaNama: string | null;
+  aktif: boolean;
+  bisaDihapus: boolean;
+}
+
+export interface CatatanTemplateItem {
+  id: string;
+  teks: string;
+}
+
+export interface EkskulNilaiSiswa {
+  ekskulId: string;
+  ekskulNama: string;
+  predikat: EkskulPredikat | null;
+  keterangan: string | null;
+}
+
+export interface RaportKelasSiswaRow {
+  siswaId: string;
+  namaLengkap: string;
+  namaPanggilan: string | null;
+  nomorAbsen: number | null;
+  nilaiLengkap: boolean;
+  jumlahMapelBelumNilai: number;
+  ekskul: EkskulNilaiSiswa[];
+  prestasiRaport: PrestasiRaportItem[];
+  peringkat: { peringkat: number; totalSiswa: number } | null;
+  kehadiranOtomatis: { sakit: number; izin: number; alpa: number };
+  overrideSakit: number | null;
+  overrideIzin: number | null;
+  overrideAlpa: number | null;
+  alasanOverrideKehadiran: string | null;
+  catatanPendidik: string | null;
+  keteranganKenaikan: KeteranganKenaikan | null;
+  kenaikanKeKelas: string | null;
+  status: StatusRaportSiswa;
+  kodeVerifikasi: string | null;
+}
+
+export interface RaportKelasKonteks {
+  rombelId: string;
+  rombelNama: string;
+  tingkat: Tingkat;
+  semesterGenap: boolean;
+  tampilkanPeringkat: boolean;
+  terkunci: boolean;
+  ekskulAktif: { id: string; nama: string }[];
+  bankKalimat: CatatanTemplateItem[];
+  rows: RaportKelasSiswaRow[];
+}
+
+export interface KekuranganFinalisasi {
+  siswaId: string;
+  namaLengkap: string;
+  jumlahMapelBelumNilai: number;
 }
