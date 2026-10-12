@@ -81,6 +81,7 @@ export const FILE_PREFIXES = [
   "wajah",
   "izin-guru",
   "pelanggaran",
+  "tindak-lanjut",
 ] as const;
 export type FilePrefix = (typeof FILE_PREFIXES)[number];
 
@@ -97,6 +98,7 @@ export const ACTIVE_FILE_PREFIXES: FilePrefix[] = [
   "wajah",
   "izin-guru",
   "pelanggaran",
+  "tindak-lanjut",
 ];
 
 export const THEME_COLOR_PRESETS = [
@@ -376,12 +378,13 @@ export const PELANGGARAN_STATUS_LABELS: Record<PelanggaranStatus, string> = {
   dibatalkan: "Dibatalkan",
 };
 
-export const SANKSI_SISWA_STATUS_LIST = ["belum", "proses", "selesai"] as const;
+export const SANKSI_SISWA_STATUS_LIST = ["belum", "proses", "selesai", "dibatalkan"] as const;
 export type SanksiSiswaStatus = (typeof SANKSI_SISWA_STATUS_LIST)[number];
 export const SANKSI_SISWA_STATUS_LABELS: Record<SanksiSiswaStatus, string> = {
   belum: "Belum ditindaklanjuti",
   proses: "Dalam proses",
   selesai: "Selesai",
+  dibatalkan: "Dibatalkan otomatis",
 };
 
 export const TINDAK_LANJUT_JENIS_LIST = [

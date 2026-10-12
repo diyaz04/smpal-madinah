@@ -1,16 +1,20 @@
 /**
- * Menambahkan role_permissions untuk modul baru Tahap 5 (Pelanggaran) ke
- * database yang SUDAH berisi data (local maupun production Tahap 1-4) —
- * tidak bisa pakai scripts/seed.ts karena itu menolak jalan kalau tabel
- * users sudah terisi.
+ * Menambahkan role_permissions untuk modul-modul Tahap 5 (Pelanggaran &
+ * Prestasi) ke database yang SUDAH berisi data (local maupun production
+ * Tahap 1-4) — tidak bisa pakai scripts/seed.ts karena itu menolak jalan
+ * kalau tabel users sudah terisi.
  *
- * Idempotent: role_permissions pakai INSERT OR IGNORE, aman dijalankan
- * berkali-kali. Tidak ada role baru di tahap ini.
+ * Satu script dipakai untuk SELURUH tahap 5 (diedit ulang & dijalankan
+ * lagi tiap sesi menambah modul baru, bukan dibuat script baru per sesi)
+ * — idempotent lewat INSERT OR IGNORE, aman dijalankan berkali-kali. Tidak
+ * ada role baru di tahap ini.
  *
- * Modul `tindak_lanjut`, `prestasi`, `rekap_kesiswaan` baru terdaftar di
- * registry (UI belum ada, menyusul sesi berikutnya) — Admin tetap diberi
- * akses penuh sekarang (konsisten "Admin semua") supaya tidak perlu
- * migrasi izin lagi saat UI-nya dibangun.
+ * Sesi 5-1: master_pelanggaran, pelanggaran. Modul `prestasi` baru
+ * terdaftar di registry (UI belum ada) — Admin tetap diberi akses penuh
+ * sekarang (konsisten "Admin semua") supaya tidak perlu migrasi izin lagi
+ * saat UI-nya dibangun.
+ * Sesi 5-2: tindak_lanjut, rekap_kesiswaan (UI sudah ada, izin BK/Kepsek/
+ * Wali Kelas ditambahkan di bagian bawah GRANTS).
  */
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -59,6 +63,15 @@ const GRANTS: Grant[] = [
   { roleName: SYSTEM_ROLE_NAMES.GURU, module: "pelanggaran", actions: ["lihat"], scope: "milik_sendiri" },
 
   { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "pelanggaran", actions: ["lihat"], scope: "milik_sendiri" },
+
+  // --- Sesi 5-2: Tindak Lanjut & Rekap Kesiswaan ---
+  { roleName: SYSTEM_ROLE_NAMES.BK_KESISWAAN, module: "tindak_lanjut", actions: ["lihat", "tambah", "ubah"], scope: "semua" },
+  { roleName: SYSTEM_ROLE_NAMES.BK_KESISWAAN, module: "rekap_kesiswaan", actions: ["lihat", "export"], scope: "semua" },
+
+  { roleName: SYSTEM_ROLE_NAMES.KEPALA_SEKOLAH, module: "rekap_kesiswaan", actions: ["lihat", "export"], scope: "semua" },
+
+  { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "tindak_lanjut", actions: ["lihat", "tambah", "ubah"], scope: "milik_sendiri" },
+  { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "rekap_kesiswaan", actions: ["lihat"], scope: "milik_sendiri" },
 ];
 
 async function main() {

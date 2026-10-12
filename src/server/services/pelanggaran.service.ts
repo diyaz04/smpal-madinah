@@ -13,14 +13,53 @@ import {
   siswaKelas,
   rombel,
   users,
+  roles,
+  userRoles,
   academicPeriods,
 } from "../db/schema";
 import { generateId } from "../lib/id";
 import { nullIfEmpty } from "../lib/text";
 import { normalizeCursorLimit, buildCursorResult, decodeCursor } from "../lib/paginate";
 import { tentukanAmbangBaruTercapai } from "../../shared/sanksi";
+import { getWaliRombelIds } from "./scope.service";
+import { kirimNotifikasi } from "./notifikasi.service";
+import { SYSTEM_ROLE_NAMES } from "../../shared/constants";
 import type { CreatePelanggaranInput } from "../../shared/schemas/pelanggaran.schema";
 import type { PelanggaranItem, CursorPaginatedResult } from "../../shared/types";
+
+async function getBkKesiswaanUserIds(db: Database): Promise<string[]> {
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(userRoles, eq(userRoles.user_id, users.id))
+    .innerJoin(roles, eq(roles.id, userRoles.role_id))
+    .where(and(eq(roles.name, SYSTEM_ROLE_NAMES.BK_KESISWAAN), isNull(users.deleted_at), eq(users.status, "ACTIVE")));
+  return rows.map((r) => r.id);
+}
+
+async function getWaliUserIdByRombelId(db: Database, rombelIds: string[]): Promise<Map<string, string>> {
+  if (rombelIds.length === 0) return new Map();
+  const rombelRows = await db
+    .select({ id: rombel.id, waliGuruId: rombel.wali_guru_id })
+    .from(rombel)
+    .where(sql`${rombel.id} IN ${rombelIds}`);
+  const guruIds = [...new Set(rombelRows.map((r) => r.waliGuruId).filter((v): v is string => !!v))];
+  if (guruIds.length === 0) return new Map();
+
+  const userRows = await db
+    .select({ id: users.id, guruId: users.guru_id })
+    .from(users)
+    .where(and(sql`${users.guru_id} IN ${guruIds}`, isNull(users.deleted_at)));
+  const userIdByGuruId = new Map(userRows.map((u) => [u.guruId!, u.id]));
+
+  const result = new Map<string, string>();
+  for (const r of rombelRows) {
+    if (!r.waliGuruId) continue;
+    const userId = userIdByGuruId.get(r.waliGuruId);
+    if (userId) result.set(r.id, userId);
+  }
+  return result;
+}
 
 export interface PelanggaranQuery {
   cursor?: string;
@@ -32,22 +71,6 @@ export interface PelanggaranQuery {
   jenisId?: string;
   pelaporUserId?: string;
   siswaId?: string;
-}
-
-/**
- * Cakupan "milik_sendiri" khusus modul ini: pelapor_user_id = diri sendiri
- * (Guru mencatat siapa saja tapi hanya lihat catatan sendiri) ATAU rombel
- * yang dia walikan (Wali Kelas lihat semua pelanggaran rombelnya) — beda
- * dari getScopedRombelIds() yang juga mengikutkan rombel yang diajar,
- * karena di modul ini guru pengajar non-wali TIDAK boleh lihat laporan
- * guru lain untuk rombel yang sama.
- */
-async function getWaliRombelIds(db: Database, guruId: string, periodId: string): Promise<string[]> {
-  const rows = await db
-    .select({ id: rombel.id })
-    .from(rombel)
-    .where(and(eq(rombel.wali_guru_id, guruId), eq(rombel.period_id, periodId)));
-  return rows.map((r) => r.id);
 }
 
 export async function listPelanggaran(
@@ -200,18 +223,24 @@ export async function createPelanggaran(
 
   const siswaIds = [...new Set(input.siswaIds)];
   const siswaRows = await db
-    .select({ id: siswa.id })
+    .select({ id: siswa.id, nama: siswa.nama_lengkap })
     .from(siswa)
     .where(and(sql`${siswa.id} IN ${siswaIds}`, isNull(siswa.deleted_at)));
   if (siswaRows.length !== siswaIds.length) {
     throw new HTTPException(400, { message: "Salah satu siswa tidak ditemukan." });
   }
+  const siswaNamaById = new Map(siswaRows.map((s) => [s.id, s.nama]));
 
   const kelasRows = await db
     .select({ siswaId: siswaKelas.siswa_id, rombelId: siswaKelas.rombel_id })
     .from(siswaKelas)
     .where(and(sql`${siswaKelas.siswa_id} IN ${siswaIds}`, eq(siswaKelas.period_id, periodId)));
   const rombelBySiswa = new Map(kelasRows.map((k) => [k.siswaId, k.rombelId]));
+  const rombelIdsTerlibat = [...new Set(kelasRows.map((k) => k.rombelId))];
+  const rombelNamaRows = rombelIdsTerlibat.length
+    ? await db.select({ id: rombel.id, nama: rombel.nama }).from(rombel).where(sql`${rombel.id} IN ${rombelIdsTerlibat}`)
+    : [];
+  const rombelNamaById = new Map(rombelNamaRows.map((r) => [r.id, r.nama]));
 
   const existingRekapRows = await db
     .select()
@@ -233,6 +262,9 @@ export async function createPelanggaran(
   }
 
   const now = new Date().toISOString();
+
+  const ambangNamaById = new Map(ambangList.map((a) => [a.id, a.nama]));
+  const notifikasiTargets: { siswaId: string; rombelId: string | null; ambangNama: string; totalPoin: number }[] = [];
 
   const statements = siswaIds.flatMap((siswaId) => {
     const existingRekap = rekapBySiswa.get(siswaId);
@@ -276,6 +308,14 @@ export async function createPelanggaran(
         updated_at: now,
       }),
     );
+    for (const ambang of ambangBaru) {
+      notifikasiTargets.push({
+        siswaId,
+        rombelId: rombelBySiswa.get(siswaId) ?? null,
+        ambangNama: ambangNamaById.get(ambang.id) ?? "sanksi",
+        totalPoin: totalPoinBaru,
+      });
+    }
 
     return [
       db.insert(pelanggaran).values({
@@ -303,6 +343,30 @@ export async function createPelanggaran(
 
   const [first, ...rest] = statements;
   if (first) await db.batch([first, ...rest]);
+
+  if (notifikasiTargets.length > 0) {
+    const bkUserIds = await getBkKesiswaanUserIds(db);
+    const waliUserIdByRombelId = await getWaliUserIdByRombelId(
+      db,
+      [...new Set(notifikasiTargets.map((t) => t.rombelId).filter((v): v is string => !!v))],
+    );
+    for (const target of notifikasiTargets) {
+      const recipients = new Set(bkUserIds);
+      if (target.rombelId) {
+        const waliUserId = waliUserIdByRombelId.get(target.rombelId);
+        if (waliUserId) recipients.add(waliUserId);
+      }
+      const siswaNama = siswaNamaById.get(target.siswaId) ?? "Siswa";
+      const rombelNama = target.rombelId ? rombelNamaById.get(target.rombelId) ?? "" : "";
+      await kirimNotifikasi(db, {
+        userIds: [...recipients],
+        judul: "Siswa mencapai ambang sanksi",
+        isi: `${siswaNama}${rombelNama ? ` (${rombelNama})` : ""} mencapai ${target.totalPoin} poin: ${target.ambangNama}.`,
+        tautan: "/kesiswaan/tindak-lanjut",
+        modul: "tindak_lanjut",
+      });
+    }
+  }
 
   return { count: siswaIds.length };
 }
@@ -351,15 +415,44 @@ export async function batalkanPelanggaran(
     return;
   }
 
+  const totalPoinBaru = Math.max(0, rekap.total_poin - existing.poin);
   const rekapStatement = db
     .update(rekapPoinSiswa)
     .set({
-      total_poin: Math.max(0, rekap.total_poin - existing.poin),
+      total_poin: totalPoinBaru,
       jumlah_pelanggaran: Math.max(0, rekap.jumlah_pelanggaran - 1),
       terakhir_pada: terakhirRow?.tanggal ?? null,
       updated_at: now,
     })
     .where(eq(rekapPoinSiswa.id, rekap.id));
 
-  await db.batch([pelanggaranStatement, rekapStatement]);
+  const sanksiBelumRows = await db
+    .select({ id: sanksiSiswa.id, ambangId: sanksiSiswa.ambang_id })
+    .from(sanksiSiswa)
+    .where(
+      and(
+        eq(sanksiSiswa.siswa_id, existing.siswa_id),
+        eq(sanksiSiswa.tahun_ajaran, existing.tahun_ajaran),
+        eq(sanksiSiswa.status, "belum"),
+      ),
+    );
+  const ambangIdsTerkait = sanksiBelumRows.map((r) => r.ambangId);
+  const ambangPoinById = ambangIdsTerkait.length
+    ? new Map(
+        (
+          await db
+            .select({ id: sanksiAmbang.id, poinMinimal: sanksiAmbang.poin_minimal })
+            .from(sanksiAmbang)
+            .where(sql`${sanksiAmbang.id} IN ${ambangIdsTerkait}`)
+        ).map((a) => [a.id, a.poinMinimal]),
+      )
+    : new Map<string, number>();
+
+  const sanksiStatements = sanksiBelumRows
+    .filter((s) => (ambangPoinById.get(s.ambangId) ?? 0) > totalPoinBaru)
+    .map((s) =>
+      db.update(sanksiSiswa).set({ status: "dibatalkan" as const, updated_at: now }).where(eq(sanksiSiswa.id, s.id)),
+    );
+
+  await db.batch([pelanggaranStatement, rekapStatement, ...sanksiStatements]);
 }

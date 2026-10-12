@@ -359,7 +359,7 @@ export const MODULES: ModuleDefinition[] = [
     ikon: "HeartHandshake",
     path: "/kesiswaan/tindak-lanjut",
     aksi: ["lihat", "tambah", "ubah"],
-    implemented: false,
+    implemented: true,
     tahap: 5,
   },
   {
@@ -379,7 +379,7 @@ export const MODULES: ModuleDefinition[] = [
     ikon: "BarChart3",
     path: "/kesiswaan/rekap",
     aksi: ["lihat", "export"],
-    implemented: false,
+    implemented: true,
     tahap: 5,
   },
 

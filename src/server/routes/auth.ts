@@ -15,6 +15,7 @@ import {
 import { logActivity } from "../services/activityLog.service";
 import { getEffectivePermissions } from "../services/permission.service";
 import { getActivePeriod, getBranding } from "../services/settings.service";
+import { countUnreadNotifikasi } from "../services/notifikasi.service";
 import { hashPassword, verifyPassword, DEFAULT_PBKDF2_ITERATIONS } from "../lib/pbkdf2";
 import { requireAuth } from "../middleware/session";
 import type { AppEnv } from "../types";
@@ -116,16 +117,18 @@ export const authRoutes = new Hono<AppEnv>()
   .get("/me", requireAuth, async (c) => {
     const db = c.get("db");
     const user = c.get("user")!;
-    const [permissions, activePeriod, branding] = await Promise.all([
+    const [permissions, activePeriod, branding, unreadNotifikasi] = await Promise.all([
       getEffectivePermissions(db, user.id),
       getActivePeriod(db),
       getBranding(db),
+      countUnreadNotifikasi(db, user.id),
     ]);
     return c.json({
       user,
       permissions,
       activePeriod,
       defaultPrimaryColor: branding.default_primary_color,
+      unreadNotifikasi,
     });
   })
 

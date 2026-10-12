@@ -19,3 +19,20 @@ export function tentukanAmbangBaruTercapai(
     .filter((a) => a.poinMinimal <= totalPoinBaru && !ambangSudahTercapaiIds.has(a.id))
     .sort((a, b) => a.poinMinimal - b.poinMinimal);
 }
+
+/**
+ * Ambang terdekat yang BELUM terlampaui dan sisa poinnya, dipakai badge
+ * peringatan "mendekati ambang" di Rekap Kesiswaan/daftar siswa. `null`
+ * kalau tidak ada ambang di atas total poin saat ini (sudah melewati semua).
+ */
+export function ambangTerdekat(
+  totalPoin: number,
+  daftarAmbang: AmbangRef[],
+): { ambang: AmbangRef; sisaPoin: number } | null {
+  const belumTerlampaui = daftarAmbang
+    .filter((a) => a.poinMinimal > totalPoin)
+    .sort((a, b) => a.poinMinimal - b.poinMinimal);
+  const terdekat = belumTerlampaui[0];
+  if (!terdekat) return null;
+  return { ambang: terdekat, sisaPoin: terdekat.poinMinimal - totalPoin };
+}

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, LogOut, UserRound, ChevronDown } from "lucide-react";
+import { Menu, LogOut, UserRound, ChevronDown, Bell } from "lucide-react";
 import { toast } from "sonner";
 
 import { MODULES } from "@shared/modules";
@@ -66,6 +66,16 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
 
       <div className="flex items-center gap-3">
         <OfflineIndicator />
+        <Button variant="ghost" size="icon-sm" className="relative" asChild aria-label="Notifikasi">
+          <Link to="/notifikasi">
+            <Bell className="h-4.5 w-4.5" />
+            {!!data?.unreadNotifikasi && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+                {data.unreadNotifikasi > 9 ? "9+" : data.unreadNotifikasi}
+              </span>
+            )}
+          </Link>
+        </Button>
         {data?.activePeriod && (
           <span className="hidden rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary sm:inline-block">
             {data.activePeriod.yearLabel} · {SEMESTER_LABELS[data.activePeriod.semester]}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { tentukanAmbangBaruTercapai } from "./sanksi";
+import { tentukanAmbangBaruTercapai, ambangTerdekat } from "./sanksi";
 
 const AMBANG = [
   { id: "a25", poinMinimal: 25 },
@@ -34,5 +34,19 @@ describe("tentukanAmbangBaruTercapai", () => {
 
   it("poin pas di batas minimal tetap terhitung", () => {
     expect(tentukanAmbangBaruTercapai(25, AMBANG, new Set())).toEqual([{ id: "a25", poinMinimal: 25 }]);
+  });
+});
+
+describe("ambangTerdekat", () => {
+  it("menemukan ambang terdekat yang belum terlampaui", () => {
+    expect(ambangTerdekat(20, AMBANG)).toEqual({ ambang: { id: "a25", poinMinimal: 25 }, sisaPoin: 5 });
+  });
+
+  it("null kalau sudah melewati semua ambang", () => {
+    expect(ambangTerdekat(150, AMBANG)).toBeNull();
+  });
+
+  it("poin pas di ambang dianggap sudah terlampaui, cari ambang berikutnya", () => {
+    expect(ambangTerdekat(25, AMBANG)).toEqual({ ambang: { id: "a50", poinMinimal: 50 }, sisaPoin: 25 });
   });
 });

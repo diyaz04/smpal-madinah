@@ -53,6 +53,21 @@ export async function resolveScopedRombelIds(
 }
 
 /**
+ * Rombel yang DIWALIKAN (bukan diajar) seorang guru di satu periode —
+ * dipakai modul `pelanggaran`/`tindak_lanjut`/`rekap_kesiswaan` yang scope
+ * "milik_sendiri"-nya untuk Wali Kelas harus rombel yang dia walikan saja,
+ * beda dari getScopedRombelIds() yang juga mengikutkan rombel yang diajar
+ * (relevan untuk modul akademik seperti Agenda/Absensi, bukan modul ini).
+ */
+export async function getWaliRombelIds(db: Database, guruId: string, periodId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: rombel.id })
+    .from(rombel)
+    .where(and(eq(rombel.wali_guru_id, guruId), eq(rombel.period_id, periodId)));
+  return rows.map((r) => r.id);
+}
+
+/**
  * Tolak (403) kalau rombelId siswa yang diakses di luar cakupan user.
  * Dipanggil di endpoint detail siswa setelah tahu rombel_id siswa tsb.
  */

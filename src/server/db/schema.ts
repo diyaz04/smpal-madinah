@@ -1051,7 +1051,7 @@ export const sanksiSiswa = sqliteTable(
   (t) => [
     uniqueIndex("sanksi_siswa_siswa_tahun_ambang_unique").on(t.siswa_id, t.tahun_ajaran, t.ambang_id),
     index("sanksi_siswa_siswa_idx").on(t.siswa_id),
-    check("sanksi_siswa_status_check", sql`${t.status} IN ('belum','proses','selesai')`),
+    check("sanksi_siswa_status_check", sql`${t.status} IN ('belum','proses','selesai','dibatalkan')`),
   ],
 );
 
@@ -1092,5 +1092,26 @@ export const rekapPoinSiswa = sqliteTable(
   (t) => [
     uniqueIndex("rekap_poin_siswa_siswa_tahun_unique").on(t.siswa_id, t.tahun_ajaran),
     index("rekap_poin_siswa_tahun_total_idx").on(t.tahun_ajaran, t.total_poin),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// notifikasi (lintas modul — dikirim lewat kirimNotifikasi(), Tahap 5)
+// ---------------------------------------------------------------------------
+export const notifikasi = sqliteTable(
+  "notifikasi",
+  {
+    id: id(),
+    user_id: text("user_id").notNull(),
+    judul: text("judul").notNull(),
+    isi: text("isi").notNull(),
+    tautan: text("tautan"),
+    modul: text("modul"),
+    dibaca_pada: text("dibaca_pada"),
+    created_at: text("created_at").notNull(),
+  },
+  (t) => [
+    index("notifikasi_user_created_idx").on(t.user_id, t.created_at),
+    index("notifikasi_user_dibaca_idx").on(t.user_id, t.dibaca_pada),
   ],
 );

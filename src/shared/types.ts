@@ -163,6 +163,7 @@ export interface MeResponse {
   permissions: EffectivePermissions;
   activePeriod: ActivePeriod | null;
   defaultPrimaryColor: string;
+  unreadNotifikasi: number;
 }
 
 // =============================================================================
@@ -761,12 +762,16 @@ export interface SanksiSiswaItem {
   id: string;
   siswaId: string;
   siswaNama: string;
+  rombelId: string | null;
+  rombelNama: string | null;
+  totalPoin: number;
   tahunAjaran: string;
   ambangId: string;
   ambangNama: string;
   poinMinimal: number;
   tercapaiPada: string;
   status: SanksiSiswaStatus;
+  noHpOrtu: string | null;
 }
 
 export interface TindakLanjutItem {
@@ -777,5 +782,44 @@ export interface TindakLanjutItem {
   jenis: TindakLanjutJenis;
   hasil: string | null;
   petugasUserId: string;
+  petugasNama: string;
   lampiranFileId: string | null;
+}
+
+export interface NotifikasiItem {
+  id: string;
+  judul: string;
+  isi: string;
+  tautan: string | null;
+  modul: string | null;
+  dibacaPada: string | null;
+  createdAt: string;
+}
+
+export interface RekapPeringkatPoinItem {
+  siswaId: string;
+  siswaNama: string;
+  rombelId: string | null;
+  rombelNama: string | null;
+  tingkat: Tingkat | null;
+  totalPoin: number;
+  jumlahPelanggaran: number;
+}
+
+export interface RekapKategoriRombelItem {
+  rombelId: string;
+  rombelNama: string;
+  kategoriId: string;
+  kategoriNama: string;
+  kategoriWarna: string;
+  jumlah: number;
+}
+
+export interface RekapJenisBulananItem {
+  bulan: string;
+  jenisId: string;
+  jenisNama: string;
+  kategoriNama: string;
+  jumlah: number;
+  totalPoin: number;
 }

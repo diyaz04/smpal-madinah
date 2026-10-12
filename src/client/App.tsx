@@ -14,6 +14,7 @@ import { HomePage } from "@/pages/HomePage";
 import { ForbiddenPage } from "@/pages/ForbiddenPage";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { MyProfilePage } from "@/pages/profile/MyProfilePage";
+import { NotifikasiPage } from "@/pages/NotifikasiPage";
 import { UsersPage } from "@/pages/settings/UsersPage";
 import { RolesPage } from "@/pages/settings/RolesPage";
 import { RoleEditPage } from "@/pages/settings/RoleEditPage";
@@ -47,6 +48,8 @@ import { RekapPresensiGuruPage } from "@/pages/kepegawaian/RekapPresensiGuruPage
 import { BukuTamuPage } from "@/pages/kepegawaian/BukuTamuPage";
 import { MasterPelanggaranPage } from "@/pages/kesiswaan/MasterPelanggaranPage";
 import { PelanggaranPage } from "@/pages/kesiswaan/PelanggaranPage";
+import { TindakLanjutPage } from "@/pages/kesiswaan/TindakLanjutPage";
+import { RekapKesiswaanPage } from "@/pages/kesiswaan/RekapKesiswaanPage";
 
 function ThemeBootstrap() {
   useApplyTheme();
@@ -72,6 +75,7 @@ export function App() {
           <Route element={<AppShell />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/profil-saya" element={<MyProfilePage />} />
+            <Route path="/notifikasi" element={<NotifikasiPage />} />
             <Route path="/403" element={<ForbiddenPage />} />
 
             <Route element={<RequirePermission module="pengaturan_sekolah" action="lihat" />}>
@@ -118,6 +122,12 @@ export function App() {
             </Route>
             <Route element={<RequirePermission module="pelanggaran" action="lihat" />}>
               <Route path="/kesiswaan/pelanggaran" element={<PelanggaranPage />} />
+            </Route>
+            <Route element={<RequirePermission module="tindak_lanjut" action="lihat" />}>
+              <Route path="/kesiswaan/tindak-lanjut" element={<TindakLanjutPage />} />
+            </Route>
+            <Route element={<RequirePermission module="rekap_kesiswaan" action="lihat" />}>
+              <Route path="/kesiswaan/rekap" element={<RekapKesiswaanPage />} />
             </Route>
             <Route element={<RequirePermission module="pengelolaan_buku_tamu" action="lihat" />}>
               <Route path="/buku-tamu" element={<BukuTamuPage />} />
