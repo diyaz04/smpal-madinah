@@ -1,3 +1,4 @@
+import type { MapelStrukturNode } from "./raportCetak";
 import type {
   AccountType,
   UserStatus,
@@ -1028,4 +1029,57 @@ export interface KekuranganFinalisasi {
   siswaId: string;
   namaLengkap: string;
   jumlahMapelBelumNilai: number;
+}
+
+// ---------------------------------------------------------------------------
+// Tahap 6 (sesi 6-4) — Cetak PDF Raport + Verifikasi QR
+// ---------------------------------------------------------------------------
+
+export interface RaportCetakSiswa extends RaportKelasSiswaRow {
+  nis: string;
+  nisn: string;
+  nilaiPerMapel: Record<string, number | null>;
+  deskripsiPerMapel: Record<string, string | null>;
+}
+
+export interface RaportCetakKonteks {
+  sekolah: {
+    nama: string;
+    alamat: string;
+    logoFileId: string | null;
+    kopFileId: string | null;
+    kepalaSekolahNama: string;
+    kepalaSekolahNip: string;
+  };
+  rombel: {
+    id: string;
+    nama: string;
+    tingkat: Tingkat;
+    fase: string;
+    waliNama: string | null;
+    waliNip: string | null;
+  };
+  periode: {
+    yearLabel: string;
+    semesterLabel: string;
+    semesterGenap: boolean;
+  };
+  pengaturan: {
+    tempatRaport: string | null;
+    tanggalRaport: string | null;
+    tampilkanPeringkat: boolean;
+  };
+  mapelStruktur: MapelStrukturNode[];
+  terkunci: boolean;
+  siswa: RaportCetakSiswa[];
+}
+
+export interface VerifikasiRaportResult {
+  namaSiswa: string;
+  nisnSamar: string;
+  rombelNama: string;
+  tingkat: Tingkat;
+  semesterLabel: string;
+  tahunAjaran: string;
+  tanggalRaport: string | null;
 }

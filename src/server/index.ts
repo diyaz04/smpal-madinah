@@ -51,6 +51,7 @@ import { legerRoutes } from "./routes/leger";
 import { ekskulRoutes } from "./routes/ekskul";
 import { catatanTemplateRoutes } from "./routes/catatanTemplate";
 import { raportKelasRoutes } from "./routes/raportKelas";
+import { cetakRaportRoutes } from "./routes/cetakRaport";
 import { createDb } from "./db/client";
 import { runLogArchival } from "./cron/archiveLogs";
 import { backfillTidakHadir } from "./services/presensiGuru.service";
@@ -114,6 +115,7 @@ app.route("/leger", legerRoutes);
 app.route("/ekskul", ekskulRoutes);
 app.route("/catatan-template", catatanTemplateRoutes);
 app.route("/raport-kelas", raportKelasRoutes);
+app.route("/cetak-raport", cetakRaportRoutes);
 
 export default {
   fetch: app.fetch,

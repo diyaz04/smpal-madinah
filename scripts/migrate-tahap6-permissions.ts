@@ -22,6 +22,10 @@
  * lihat `assertBisaIsiEkskul()`). `pengaturan_raport` aksi `tambah`/`hapus`
  * ditambahkan untuk Admin kelola master Ekskul + bank kalimat Catatan
  * Pendidik.
+ * Sesi 6-4: `cetak_raport` UI (PDF + verifikasi QR) sudah ada — grant-nya
+ * sudah dipasang di sesi 6-1 (Admin/Wali Kelas/Kepala Sekolah), tidak ada
+ * perubahan grant di sesi ini. Guru biasa (pembina ekskul) tetap tidak
+ * dapat `cetak_raport` — mencetak raport resmi bukan kewenangannya.
  */
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

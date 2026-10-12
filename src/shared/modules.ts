@@ -441,7 +441,7 @@ export const MODULES: ModuleDefinition[] = [
     ikon: "Printer",
     path: "/akademik/cetak-raport",
     aksi: ["lihat", "export"],
-    implemented: false,
+    implemented: true,
     tahap: 6,
   },
 

@@ -56,6 +56,8 @@ import { TujuanPembelajaranPage } from "@/pages/akademik/TujuanPembelajaranPage"
 import { InputNilaiPage } from "@/pages/akademik/InputNilaiPage";
 import { LegerPage } from "@/pages/akademik/LegerPage";
 import { RaportKelasPage } from "@/pages/akademik/RaportKelasPage";
+import { CetakRaportPage } from "@/pages/akademik/CetakRaportPage";
+import { VerifikasiRaportPage } from "@/pages/VerifikasiRaportPage";
 
 function ThemeBootstrap() {
   useApplyTheme();
@@ -70,6 +72,7 @@ export function App() {
       <Toaster richColors position="top-center" />
       <Routes>
         <Route path="/kiosk" element={<KioskPage />} />
+        <Route path="/verifikasi/raport/:kode" element={<VerifikasiRaportPage />} />
 
         <Route element={<GuestOnly />}>
           <Route path="/login" element={<LoginPage />} />
@@ -152,6 +155,9 @@ export function App() {
             </Route>
             <Route element={<RequirePermission module="raport_kelas" action="lihat" />}>
               <Route path="/akademik/raport-kelas" element={<RaportKelasPage />} />
+            </Route>
+            <Route element={<RequirePermission module="cetak_raport" action="lihat" />}>
+              <Route path="/akademik/cetak-raport" element={<CetakRaportPage />} />
             </Route>
             <Route element={<RequirePermission module="pengelolaan_buku_tamu" action="lihat" />}>
               <Route path="/buku-tamu" element={<BukuTamuPage />} />
