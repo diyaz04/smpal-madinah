@@ -21,6 +21,7 @@ import type { SanksiSiswaStatus } from "../../shared/constants";
 export interface SanksiAktifQuery {
   status?: SanksiSiswaStatus;
   rombelId?: string;
+  siswaId?: string;
 }
 
 export async function listSanksiAktif(
@@ -32,6 +33,7 @@ export async function listSanksiAktif(
 ): Promise<SanksiSiswaItem[]> {
   const conditions = [eq(sanksiSiswa.tahun_ajaran, tahunAjaran)];
   if (query.status) conditions.push(eq(sanksiSiswa.status, query.status));
+  if (query.siswaId) conditions.push(eq(sanksiSiswa.siswa_id, query.siswaId));
 
   const rows = await db
     .select({

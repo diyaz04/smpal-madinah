@@ -8,11 +8,13 @@ import type { FilePrefix } from "../../shared/constants";
 
 // Tahap 1 hanya menerima gambar (logo, kop, foto profil) — maks 2MB,
 // nama file diacak di R2, dan diakses lewat endpoint Worker (bukan bucket
-// publik). Lihat bagian 7 prompt.
+// publik). Lihat bagian 7 prompt. Tahap 5 (sesi 5-3) menambah PDF — sertifikat
+// prestasi boleh gambar atau PDF, tetap di batas 2MB yang sama.
 const ALLOWED_MIME_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "application/pdf": "pdf",
 };
 const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 
@@ -39,7 +41,7 @@ export async function uploadFile(
   const ext = ALLOWED_MIME_TYPES[input.mimeType];
   if (!ext) {
     throw new HTTPException(400, {
-      message: "Tipe file tidak didukung. Gunakan JPG, PNG, atau WebP.",
+      message: "Tipe file tidak didukung. Gunakan JPG, PNG, WebP, atau PDF.",
     });
   }
   if (input.data.byteLength > MAX_FILE_SIZE_BYTES) {

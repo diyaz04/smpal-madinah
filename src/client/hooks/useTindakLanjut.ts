@@ -8,16 +8,19 @@ import type { SanksiSiswaStatus } from "@shared/constants";
 export interface SanksiAktifFilters {
   status?: SanksiSiswaStatus;
   rombelId?: string;
+  siswaId?: string;
 }
 
-export function useSanksiAktifQuery(filters: SanksiAktifFilters) {
+export function useSanksiAktifQuery(filters: SanksiAktifFilters, enabled = true) {
   const params = new URLSearchParams();
   if (filters.status) params.set("status", filters.status);
   if (filters.rombelId) params.set("rombel", filters.rombelId);
+  if (filters.siswaId) params.set("siswa", filters.siswaId);
 
   return useQuery({
     queryKey: ["tindak-lanjut", "sanksi", filters],
     queryFn: () => api.get<{ items: SanksiSiswaItem[] }>(`/tindak-lanjut/sanksi?${params.toString()}`),
+    enabled,
   });
 }
 

@@ -43,6 +43,7 @@ import { pelanggaranRoutes } from "./routes/pelanggaran";
 import { notifikasiRoutes } from "./routes/notifikasi";
 import { tindakLanjutRoutes } from "./routes/tindakLanjut";
 import { rekapKesiswaanRoutes } from "./routes/rekapKesiswaan";
+import { prestasiRoutes } from "./routes/prestasi";
 import { createDb } from "./db/client";
 import { runLogArchival } from "./cron/archiveLogs";
 import { backfillTidakHadir } from "./services/presensiGuru.service";
@@ -98,6 +99,7 @@ app.route("/pelanggaran", pelanggaranRoutes);
 app.route("/notifikasi", notifikasiRoutes);
 app.route("/tindak-lanjut", tindakLanjutRoutes);
 app.route("/rekap-kesiswaan", rekapKesiswaanRoutes);
+app.route("/prestasi", prestasiRoutes);
 
 export default {
   fetch: app.fetch,

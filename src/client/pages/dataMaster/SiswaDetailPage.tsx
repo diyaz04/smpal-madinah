@@ -21,9 +21,18 @@ import {
 import { SiswaFormDialog } from "@/components/siswa/SiswaFormDialog";
 import { useSiswaDetail, useDeleteSiswa } from "@/hooks/useSiswa";
 import { useRekapSiswaDetail } from "@/hooks/useRekapAbsensi";
+import { usePelanggaranList, useRekapPoinSatuSiswa } from "@/hooks/usePelanggaran";
+import { useSanksiAktifQuery } from "@/hooks/useTindakLanjut";
+import { usePrestasiList } from "@/hooks/usePrestasi";
 import { usePermission } from "@/hooks/usePermission";
 import { ApiError } from "@/lib/api";
-import { ABSENSI_HARIAN_STATUS_LABELS } from "@shared/constants";
+import {
+  ABSENSI_HARIAN_STATUS_LABELS,
+  PELANGGARAN_STATUS_LABELS,
+  SANKSI_SISWA_STATUS_LABELS,
+  PRESTASI_BIDANG_LABELS,
+  PRESTASI_TINGKAT_LABELS,
+} from "@shared/constants";
 
 export function SiswaDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +42,22 @@ export function SiswaDetailPage() {
   const siswa = data?.item;
   const canLihatKehadiran = can("absensi_siswa", "lihat");
   const { data: kehadiranData, isLoading: kehadiranLoading } = useRekapSiswaDetail(canLihatKehadiran ? (id ?? null) : null);
+
+  const canLihatPelanggaran = can("pelanggaran", "lihat");
+  const { data: rekapPoinData } = useRekapPoinSatuSiswa(canLihatPelanggaran ? (id ?? null) : null);
+  const { data: pelanggaranData, isLoading: pelanggaranLoading } = usePelanggaranList(
+    null,
+    { siswaId: id },
+    canLihatPelanggaran && !!id,
+  );
+  const { data: sanksiData } = useSanksiAktifQuery({ siswaId: id }, canLihatPelanggaran && !!id);
+
+  const canLihatPrestasi = can("prestasi", "lihat");
+  const { data: prestasiData, isLoading: prestasiLoading } = usePrestasiList(
+    null,
+    { siswaId: id },
+    canLihatPrestasi && !!id,
+  );
 
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -106,6 +131,8 @@ export function SiswaDetailPage() {
           <TabsTrigger value="info">Info</TabsTrigger>
           <TabsTrigger value="riwayat">Riwayat Kelas</TabsTrigger>
           <TabsTrigger value="kehadiran">Kehadiran</TabsTrigger>
+          <TabsTrigger value="pelanggaran">Poin Pelanggaran</TabsTrigger>
+          <TabsTrigger value="prestasi">Prestasi</TabsTrigger>
           <TabsTrigger value="lainnya">Lainnya</TabsTrigger>
         </TabsList>
 
@@ -224,9 +251,93 @@ export function SiswaDetailPage() {
           ) : null}
         </TabsContent>
 
+        <TabsContent value="pelanggaran" className="rounded-xl border border-border bg-card p-5">
+          {!canLihatPelanggaran ? (
+            <p className="text-sm text-muted-foreground">Anda tidak punya akses melihat data pelanggaran.</p>
+          ) : pelanggaranLoading ? (
+            <p className="text-sm text-muted-foreground">Memuat...</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div>
+                  <p className="text-lg font-semibold text-foreground">{rekapPoinData?.item.totalPoin ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">Total Poin Tahun Ini</p>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-foreground">{rekapPoinData?.item.jumlahPelanggaran ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">Jumlah Pelanggaran</p>
+                </div>
+              </div>
+
+              {(sanksiData?.items.length ?? 0) > 0 && (
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-muted-foreground">Sanksi & Tindak Lanjut</p>
+                  <ul className="space-y-1.5">
+                    {sanksiData!.items.map((s) => (
+                      <li key={s.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
+                        <span>
+                          {s.ambangNama} (≥ {s.poinMinimal} poin)
+                        </span>
+                        <Badge variant={s.status === "selesai" ? "secondary" : s.status === "dibatalkan" ? "outline" : "default"}>
+                          {SANKSI_SISWA_STATUS_LABELS[s.status]}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Daftar Pelanggaran</p>
+                {(pelanggaranData?.items.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">Belum ada catatan pelanggaran tahun ini.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {pelanggaranData!.items.map((p) => (
+                      <li key={p.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
+                        <span>
+                          {p.tanggal} — {p.jenisNama} ({p.poin} poin)
+                        </span>
+                        <Badge variant={p.status === "dibatalkan" ? "outline" : "secondary"}>
+                          {PELANGGARAN_STATUS_LABELS[p.status]}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="prestasi" className="rounded-xl border border-border bg-card p-5">
+          {!canLihatPrestasi ? (
+            <p className="text-sm text-muted-foreground">Anda tidak punya akses melihat data prestasi.</p>
+          ) : prestasiLoading ? (
+            <p className="text-sm text-muted-foreground">Memuat...</p>
+          ) : (prestasiData?.items.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada prestasi tercatat.</p>
+          ) : (
+            <ul className="space-y-2">
+              {prestasiData!.items.map((p) => (
+                <li key={p.id} className="rounded-lg border border-border px-3 py-2 text-sm">
+                  <p className="font-medium text-foreground">
+                    {p.capaian} — {p.namaKegiatan}
+                  </p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Badge variant="secondary">{PRESTASI_BIDANG_LABELS[p.bidang]}</Badge>
+                    <Badge variant="outline">{PRESTASI_TINGKAT_LABELS[p.tingkat]}</Badge>
+                    <span className="text-xs text-muted-foreground">{p.tanggal}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </TabsContent>
+
         <TabsContent value="lainnya" className="rounded-xl border border-border bg-card p-5">
           <p className="text-sm text-muted-foreground">
-            Nilai dan catatan BK akan tersedia di tahap berikutnya.
+            Nilai akan tersedia di tahap berikutnya.
           </p>
         </TabsContent>
       </Tabs>

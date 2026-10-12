@@ -82,6 +82,7 @@ export const FILE_PREFIXES = [
   "izin-guru",
   "pelanggaran",
   "tindak-lanjut",
+  "prestasi",
 ] as const;
 export type FilePrefix = (typeof FILE_PREFIXES)[number];
 
@@ -99,6 +100,7 @@ export const ACTIVE_FILE_PREFIXES: FilePrefix[] = [
   "izin-guru",
   "pelanggaran",
   "tindak-lanjut",
+  "prestasi",
 ];
 
 export const THEME_COLOR_PRESETS = [
@@ -418,3 +420,58 @@ export const DEFAULT_SANKSI_AMBANG = [
   { poinMinimal: 75, nama: "Surat peringatan" },
   { poinMinimal: 100, nama: "Dikembalikan ke orang tua" },
 ] as const;
+
+export const PRESTASI_BIDANG_LIST = [
+  "akademik",
+  "non_akademik",
+  "keagamaan",
+  "olahraga",
+  "seni",
+  "lainnya",
+] as const;
+export type PrestasiBidang = (typeof PRESTASI_BIDANG_LIST)[number];
+export const PRESTASI_BIDANG_LABELS: Record<PrestasiBidang, string> = {
+  akademik: "Akademik",
+  non_akademik: "Non-Akademik",
+  keagamaan: "Keagamaan",
+  olahraga: "Olahraga",
+  seni: "Seni",
+  lainnya: "Lainnya",
+};
+
+export const PRESTASI_TINGKAT_LIST = [
+  "sekolah",
+  "kecamatan",
+  "kabupaten",
+  "provinsi",
+  "nasional",
+  "internasional",
+] as const;
+export type PrestasiTingkat = (typeof PRESTASI_TINGKAT_LIST)[number];
+export const PRESTASI_TINGKAT_LABELS: Record<PrestasiTingkat, string> = {
+  sekolah: "Sekolah",
+  kecamatan: "Kecamatan",
+  kabupaten: "Kabupaten/Kota",
+  provinsi: "Provinsi",
+  nasional: "Nasional",
+  internasional: "Internasional",
+};
+/** Urutan tingkat tertinggi → terendah, dipakai urutan tampil raport (getPrestasiRaport). */
+export const PRESTASI_TINGKAT_URUTAN: Record<PrestasiTingkat, number> = {
+  internasional: 6,
+  nasional: 5,
+  provinsi: 4,
+  kabupaten: 3,
+  kecamatan: 2,
+  sekolah: 1,
+};
+
+export const PRESTASI_JENIS_LIST = ["individu", "beregu"] as const;
+export type PrestasiJenis = (typeof PRESTASI_JENIS_LIST)[number];
+export const PRESTASI_JENIS_LABELS: Record<PrestasiJenis, string> = {
+  individu: "Individu",
+  beregu: "Beregu",
+};
+
+/** Maksimal prestasi yang ditampilkan di raport (getPrestasiRaport, dipakai Tahap 6). */
+export const MAKS_PRESTASI_RAPORT = 3;

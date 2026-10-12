@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/lib/api";
 import type { CreatePelanggaranInput, BatalkanPelanggaranInput } from "@shared/schemas/pelanggaran.schema";
-import type { PelanggaranItem, PelanggaranJenisAktifItem, CursorPaginatedResult } from "@shared/types";
+import type { PelanggaranItem, PelanggaranJenisAktifItem, RekapPoinSingkat, CursorPaginatedResult } from "@shared/types";
 
 export interface PelanggaranFilters {
   siswaId?: string;
@@ -21,7 +21,15 @@ export function usePelanggaranJenisAktifQuery() {
   });
 }
 
-export function usePelanggaranList(cursor: string | null, filters: PelanggaranFilters) {
+export function useRekapPoinSatuSiswa(siswaId: string | null) {
+  return useQuery({
+    queryKey: ["pelanggaran", "rekap-siswa", siswaId],
+    queryFn: () => api.get<{ item: RekapPoinSingkat }>(`/pelanggaran/rekap-siswa/${siswaId}`),
+    enabled: !!siswaId,
+  });
+}
+
+export function usePelanggaranList(cursor: string | null, filters: PelanggaranFilters, enabled = true) {
   const params = new URLSearchParams();
   if (cursor) params.set("cursor", cursor);
   if (filters.siswaId) params.set("siswa", filters.siswaId);
@@ -36,6 +44,7 @@ export function usePelanggaranList(cursor: string | null, filters: PelanggaranFi
     queryKey: ["pelanggaran", "list", cursor, filters],
     queryFn: () => api.get<CursorPaginatedResult<PelanggaranItem>>(`/pelanggaran?${params.toString()}`),
     placeholderData: (prev) => prev,
+    enabled,
   });
 }
 

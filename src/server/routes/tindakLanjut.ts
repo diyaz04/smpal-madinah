@@ -33,6 +33,7 @@ export const tindakLanjutRoutes = new Hono<AppEnv>()
       {
         status: (c.req.query("status") as SanksiSiswaStatus | undefined) || undefined,
         rombelId: c.req.query("rombel") || undefined,
+        siswaId: c.req.query("siswa") || undefined,
       },
       tahunAjaran,
       periodId,

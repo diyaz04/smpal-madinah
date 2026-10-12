@@ -57,6 +57,13 @@
       "when": 1791766092571,
       "tag": "0007_regular_franklin_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791767009079,
+      "tag": "0008_jazzy_dazzler",
+      "breakpoints": true
     }
   ]
 }

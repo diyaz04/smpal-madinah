@@ -15,6 +15,7 @@
  * saat UI-nya dibangun.
  * Sesi 5-2: tindak_lanjut, rekap_kesiswaan (UI sudah ada, izin BK/Kepsek/
  * Wali Kelas ditambahkan di bagian bawah GRANTS).
+ * Sesi 5-3: prestasi (UI sudah ada, izin BK/Wali Kelas ditambahkan).
  */
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -72,6 +73,11 @@ const GRANTS: Grant[] = [
 
   { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "tindak_lanjut", actions: ["lihat", "tambah", "ubah"], scope: "milik_sendiri" },
   { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "rekap_kesiswaan", actions: ["lihat"], scope: "milik_sendiri" },
+
+  // --- Sesi 5-3: Prestasi ---
+  { roleName: SYSTEM_ROLE_NAMES.BK_KESISWAAN, module: "prestasi", actions: ["lihat", "tambah", "ubah", "hapus", "export"], scope: "semua" },
+  { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "prestasi", actions: ["tambah", "ubah"], scope: "semua" },
+  { roleName: SYSTEM_ROLE_NAMES.WALI_KELAS, module: "prestasi", actions: ["lihat"], scope: "milik_sendiri" },
 ];
 
 async function main() {

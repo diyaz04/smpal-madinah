@@ -46,6 +46,9 @@ import {
   PELANGGARAN_STATUS_LIST,
   SANKSI_SISWA_STATUS_LIST,
   TINDAK_LANJUT_JENIS_LIST,
+  PRESTASI_BIDANG_LIST,
+  PRESTASI_TINGKAT_LIST,
+  PRESTASI_JENIS_LIST,
 } from "../../shared/constants";
 
 const id = () =>
@@ -1113,5 +1116,43 @@ export const notifikasi = sqliteTable(
   (t) => [
     index("notifikasi_user_created_idx").on(t.user_id, t.created_at),
     index("notifikasi_user_dibaca_idx").on(t.user_id, t.dibaca_pada),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// prestasi (Tahap 5, sesi 5-3 — terpisah dari pelanggaran, tidak mengurangi poin)
+// ---------------------------------------------------------------------------
+export const prestasi = sqliteTable(
+  "prestasi",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    siswa_id: text("siswa_id").notNull(),
+    rombel_id: text("rombel_id"), // snapshot rombel siswa saat dicatat
+    nama_kegiatan: text("nama_kegiatan").notNull(),
+    bidang: text("bidang", { enum: PRESTASI_BIDANG_LIST }).notNull(),
+    tingkat: text("tingkat", { enum: PRESTASI_TINGKAT_LIST }).notNull(),
+    capaian: text("capaian").notNull(), // "Juara 1", "Harapan 2", dst — teks bebas
+    jenis: text("jenis", { enum: PRESTASI_JENIS_LIST }).notNull(),
+    penyelenggara: text("penyelenggara"),
+    tanggal: text("tanggal").notNull(),
+    keterangan: text("keterangan"),
+    sertifikat_file_id: text("sertifikat_file_id"),
+    tampil_di_raport: integer("tampil_di_raport", { mode: "boolean" }).notNull().default(true),
+    judul_raport: text("judul_raport").notNull(),
+    keterangan_raport: text("keterangan_raport").notNull(),
+    dicatat_oleh: text("dicatat_oleh").notNull(),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [
+    index("prestasi_siswa_tanggal_idx").on(t.siswa_id, t.tanggal),
+    index("prestasi_period_idx").on(t.period_id),
+    check("prestasi_bidang_check", sql`${t.bidang} IN ('akademik','non_akademik','keagamaan','olahraga','seni','lainnya')`),
+    check(
+      "prestasi_tingkat_check",
+      sql`${t.tingkat} IN ('sekolah','kecamatan','kabupaten','provinsi','nasional','internasional')`,
+    ),
+    check("prestasi_jenis_check", sql`${t.jenis} IN ('individu','beregu')`),
   ],
 );

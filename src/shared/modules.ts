@@ -369,7 +369,7 @@ export const MODULES: ModuleDefinition[] = [
     ikon: "Trophy",
     path: "/kesiswaan/prestasi",
     aksi: ["lihat", "tambah", "ubah", "hapus", "export"],
-    implemented: false,
+    implemented: true,
     tahap: 5,
   },
   {

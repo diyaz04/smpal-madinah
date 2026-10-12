@@ -2,12 +2,12 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { createPelanggaranSchema, batalkanPelanggaranSchema } from "../../shared/schemas/pelanggaran.schema";
-import { listPelanggaran, createPelanggaran, batalkanPelanggaran } from "../services/pelanggaran.service";
+import { listPelanggaran, createPelanggaran, batalkanPelanggaran, getRekapPoinSatuSiswa } from "../services/pelanggaran.service";
 import { listPelanggaranJenisAktif } from "../services/pelanggaranJenis.service";
 import { uploadFile } from "../services/r2.service";
 import { logActivity } from "../services/activityLog.service";
 import { requirePermission } from "../middleware/requirePermission";
-import { resolvePeriodId } from "../lib/period";
+import { resolvePeriodId, getTahunAjaran } from "../lib/period";
 import type { AppEnv } from "../types";
 
 const MODULE = "pelanggaran";
@@ -27,6 +27,15 @@ export const pelanggaranRoutes = new Hono<AppEnv>()
   .get("/jenis", requirePermission(MODULE, "tambah"), async (c) => {
     const items = await listPelanggaranJenisAktif(c.get("db"));
     return c.json({ items });
+  })
+
+  .get("/rekap-siswa/:id", requirePermission(MODULE, "lihat"), async (c) => {
+    const db = c.get("db");
+    const id = c.req.param("id")!;
+    const periodId = await resolvePeriodId(c);
+    const tahunAjaran = await getTahunAjaran(db, periodId);
+    const item = await getRekapPoinSatuSiswa(db, id, tahunAjaran);
+    return c.json({ item });
   })
 
   .get("/", requirePermission(MODULE, "lihat"), async (c) => {

@@ -34,6 +34,9 @@ import type {
   PelanggaranStatus,
   SanksiSiswaStatus,
   TindakLanjutJenis,
+  PrestasiBidang,
+  PrestasiTingkat,
+  PrestasiJenis,
 } from "./constants";
 
 export interface AuthUser {
@@ -822,4 +825,38 @@ export interface RekapJenisBulananItem {
   kategoriNama: string;
   jumlah: number;
   totalPoin: number;
+}
+
+export interface RekapPoinSingkat {
+  totalPoin: number;
+  jumlahPelanggaran: number;
+}
+
+export interface PrestasiItem {
+  id: string;
+  siswaId: string;
+  siswaNama: string;
+  rombelId: string | null;
+  rombelNama: string | null;
+  namaKegiatan: string;
+  bidang: PrestasiBidang;
+  tingkat: PrestasiTingkat;
+  capaian: string;
+  jenis: PrestasiJenis;
+  penyelenggara: string | null;
+  tanggal: string;
+  keterangan: string | null;
+  sertifikatFileId: string | null;
+  tampilDiRaport: boolean;
+  judulRaport: string;
+  keteranganRaport: string;
+  dicatatOleh: string;
+  createdAt: string;
+}
+
+export interface PrestasiRaportItem {
+  judulRaport: string;
+  keteranganRaport: string;
+  tingkat: PrestasiTingkat;
+  tanggal: string;
 }

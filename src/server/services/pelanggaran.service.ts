@@ -25,7 +25,15 @@ import { getWaliRombelIds } from "./scope.service";
 import { kirimNotifikasi } from "./notifikasi.service";
 import { SYSTEM_ROLE_NAMES } from "../../shared/constants";
 import type { CreatePelanggaranInput } from "../../shared/schemas/pelanggaran.schema";
-import type { PelanggaranItem, CursorPaginatedResult } from "../../shared/types";
+import type { PelanggaranItem, RekapPoinSingkat, CursorPaginatedResult } from "../../shared/types";
+
+/** Dipakai tab "Poin Pelanggaran" di profil siswa — satu baris indexed, bukan agregat. */
+export async function getRekapPoinSatuSiswa(db: Database, siswaId: string, tahunAjaran: string): Promise<RekapPoinSingkat> {
+  const row = await db.query.rekapPoinSiswa.findFirst({
+    where: and(eq(rekapPoinSiswa.siswa_id, siswaId), eq(rekapPoinSiswa.tahun_ajaran, tahunAjaran)),
+  });
+  return { totalPoin: row?.total_poin ?? 0, jumlahPelanggaran: row?.jumlah_pelanggaran ?? 0 };
+}
 
 async function getBkKesiswaanUserIds(db: Database): Promise<string[]> {
   const rows = await db

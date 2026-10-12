@@ -50,6 +50,7 @@ import { MasterPelanggaranPage } from "@/pages/kesiswaan/MasterPelanggaranPage";
 import { PelanggaranPage } from "@/pages/kesiswaan/PelanggaranPage";
 import { TindakLanjutPage } from "@/pages/kesiswaan/TindakLanjutPage";
 import { RekapKesiswaanPage } from "@/pages/kesiswaan/RekapKesiswaanPage";
+import { PrestasiPage } from "@/pages/kesiswaan/PrestasiPage";
 
 function ThemeBootstrap() {
   useApplyTheme();
@@ -128,6 +129,9 @@ export function App() {
             </Route>
             <Route element={<RequirePermission module="rekap_kesiswaan" action="lihat" />}>
               <Route path="/kesiswaan/rekap" element={<RekapKesiswaanPage />} />
+            </Route>
+            <Route element={<RequirePermission module="prestasi" action="lihat" />}>
+              <Route path="/kesiswaan/prestasi" element={<PrestasiPage />} />
             </Route>
             <Route element={<RequirePermission module="pengelolaan_buku_tamu" action="lihat" />}>
               <Route path="/buku-tamu" element={<BukuTamuPage />} />
