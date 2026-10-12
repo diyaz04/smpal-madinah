@@ -860,3 +860,67 @@ export interface PrestasiRaportItem {
   tingkat: PrestasiTingkat;
   tanggal: string;
 }
+
+// ---------------------------------------------------------------------------
+// Tahap 6 — Raport
+// ---------------------------------------------------------------------------
+
+export interface RaportPengaturan {
+  periodId: string;
+  bobotTp: number;
+  bobotSts: number;
+  bobotSas: number;
+  pembulatanDesimal: number;
+  tempatRaport: string | null;
+  tanggalRaport: string | null;
+  fasePerTingkat: Record<Tingkat, string>;
+  tampilkanPeringkat: boolean;
+}
+
+export interface RaportKunciRombelItem {
+  rombelId: string;
+  rombelNama: string;
+  terkunci: boolean;
+  dikunciOleh: string | null;
+  dikunciPada: string | null;
+}
+
+export interface TujuanPembelajaranItem {
+  id: string;
+  periodId: string;
+  mapelId: string;
+  tingkat: Tingkat;
+  kode: string;
+  deskripsi: string;
+  urutan: number;
+  bisaDihapus: boolean;
+}
+
+/** Pasangan rombel+mapel yang diampu guru (dari pembagian_tugas) — dipakai pemilih Input Nilai/TP. */
+export interface AmpuanItem {
+  rombelId: string;
+  rombelNama: string;
+  mapelId: string;
+  mapelNama: string;
+  tingkat: Tingkat;
+}
+
+export interface InputNilaiSiswaRow {
+  siswaId: string;
+  namaLengkap: string;
+  nomorAbsen: number | null;
+  nilaiTp: Record<string, number | null>;
+  nilaiSts: number | null;
+  nilaiSas: number | null;
+  nilaiAkhir: number | null;
+  predikat: string | null;
+}
+
+export interface InputNilaiKonteks {
+  tpList: { id: string; kode: string; deskripsi: string }[];
+  rows: InputNilaiSiswaRow[];
+  bobot: { bobotTp: number; bobotSts: number; bobotSas: number };
+  pembulatanDesimal: number;
+  predikatConfig: PredikatRange[];
+  terkunci: boolean;
+}

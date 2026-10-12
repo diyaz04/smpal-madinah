@@ -44,6 +44,9 @@ import { notifikasiRoutes } from "./routes/notifikasi";
 import { tindakLanjutRoutes } from "./routes/tindakLanjut";
 import { rekapKesiswaanRoutes } from "./routes/rekapKesiswaan";
 import { prestasiRoutes } from "./routes/prestasi";
+import { raportPengaturanRoutes } from "./routes/raportPengaturan";
+import { tujuanPembelajaranRoutes } from "./routes/tujuanPembelajaran";
+import { nilaiRoutes } from "./routes/nilai";
 import { createDb } from "./db/client";
 import { runLogArchival } from "./cron/archiveLogs";
 import { backfillTidakHadir } from "./services/presensiGuru.service";
@@ -100,6 +103,9 @@ app.route("/notifikasi", notifikasiRoutes);
 app.route("/tindak-lanjut", tindakLanjutRoutes);
 app.route("/rekap-kesiswaan", rekapKesiswaanRoutes);
 app.route("/prestasi", prestasiRoutes);
+app.route("/raport-pengaturan", raportPengaturanRoutes);
+app.route("/tujuan-pembelajaran", tujuanPembelajaranRoutes);
+app.route("/nilai", nilaiRoutes);
 
 export default {
   fetch: app.fetch,

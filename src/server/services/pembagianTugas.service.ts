@@ -15,6 +15,7 @@ import {
 import { generateId } from "../lib/id";
 import { chunkArray } from "../lib/chunk";
 import { MINIMAL_JP_MENGAJAR } from "../../shared/constants";
+import type { Tingkat } from "../../shared/constants";
 import type { AssignPembagianTugasInput } from "../../shared/schemas/pembagianTugas.schema";
 import type { PembagianTugasMatrix, PembagianTugasCell, RingkasanGuruItem } from "../../shared/types";
 
@@ -69,6 +70,7 @@ export interface GuruAssignmentItem {
   rombelNama: string;
   mapelId: string;
   mapelNama: string;
+  tingkat: Tingkat;
   isTeamTeaching: boolean;
 }
 
@@ -84,6 +86,7 @@ export async function getGuruAssignments(
       rombelNama: rombel.nama,
       mapelId: mapel.id,
       mapelNama: mapel.nama,
+      tingkat: rombel.tingkat,
       isTeamTeaching: pembagianTugas.is_team_teaching,
     })
     .from(pembagianTugas)

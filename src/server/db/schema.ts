@@ -49,6 +49,7 @@ import {
   PRESTASI_BIDANG_LIST,
   PRESTASI_TINGKAT_LIST,
   PRESTASI_JENIS_LIST,
+  NILAI_UJIAN_JENIS_LIST,
 } from "../../shared/constants";
 
 const id = () =>
@@ -1154,5 +1155,119 @@ export const prestasi = sqliteTable(
       sql`${t.tingkat} IN ('sekolah','kecamatan','kabupaten','provinsi','nasional','internasional')`,
     ),
     check("prestasi_jenis_check", sql`${t.jenis} IN ('individu','beregu')`),
+  ],
+);
+
+// =============================================================================
+// Tahap 6 — Raport
+// =============================================================================
+
+export const raportPengaturan = sqliteTable(
+  "raport_pengaturan",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    bobot_tp: integer("bobot_tp").notNull().default(50),
+    bobot_sts: integer("bobot_sts").notNull().default(25),
+    bobot_sas: integer("bobot_sas").notNull().default(25),
+    pembulatan_desimal: integer("pembulatan_desimal").notNull().default(0),
+    tempat_raport: text("tempat_raport"),
+    tanggal_raport: text("tanggal_raport"),
+    fase_per_tingkat: text("fase_per_tingkat").notNull(), // JSON Record<Tingkat,string>
+    tampilkan_peringkat: integer("tampilkan_peringkat", { mode: "boolean" }).notNull().default(false),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("raport_pengaturan_period_unique").on(t.period_id)],
+);
+
+export const raportKunciRombel = sqliteTable(
+  "raport_kunci_rombel",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    rombel_id: text("rombel_id").notNull(),
+    terkunci: integer("terkunci", { mode: "boolean" }).notNull().default(false),
+    dikunci_oleh: text("dikunci_oleh"),
+    dikunci_pada: text("dikunci_pada"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("raport_kunci_rombel_unique").on(t.period_id, t.rombel_id)],
+);
+
+export const tujuanPembelajaran = sqliteTable(
+  "tujuan_pembelajaran",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    mapel_id: text("mapel_id").notNull(),
+    tingkat: text("tingkat", { enum: TINGKAT_LIST }).notNull(),
+    kode: text("kode").notNull(),
+    deskripsi: text("deskripsi").notNull(),
+    urutan: integer("urutan").notNull().default(0),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [
+    index("tujuan_pembelajaran_period_mapel_tingkat_idx").on(t.period_id, t.mapel_id, t.tingkat),
+    check("tujuan_pembelajaran_tingkat_check", sql`${t.tingkat} IN ('VII','VIII','IX')`),
+  ],
+);
+
+export const nilaiLingkup = sqliteTable(
+  "nilai_lingkup",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    siswa_id: text("siswa_id").notNull(),
+    mapel_id: text("mapel_id").notNull(),
+    tp_id: text("tp_id").notNull(),
+    nilai: integer("nilai"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("nilai_lingkup_unique").on(t.period_id, t.siswa_id, t.mapel_id, t.tp_id),
+    index("nilai_lingkup_period_mapel_siswa_idx").on(t.period_id, t.mapel_id, t.siswa_id),
+  ],
+);
+
+export const nilaiUjian = sqliteTable(
+  "nilai_ujian",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    siswa_id: text("siswa_id").notNull(),
+    mapel_id: text("mapel_id").notNull(),
+    jenis: text("jenis", { enum: NILAI_UJIAN_JENIS_LIST }).notNull(),
+    nilai: integer("nilai"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("nilai_ujian_unique").on(t.period_id, t.siswa_id, t.mapel_id, t.jenis),
+    index("nilai_ujian_period_mapel_siswa_idx").on(t.period_id, t.mapel_id, t.siswa_id),
+    check("nilai_ujian_jenis_check", sql`${t.jenis} IN ('STS','SAS')`),
+  ],
+);
+
+export const nilaiAkhir = sqliteTable(
+  "nilai_akhir",
+  {
+    id: id(),
+    period_id: text("period_id").notNull(),
+    siswa_id: text("siswa_id").notNull(),
+    rombel_id: text("rombel_id").notNull(),
+    mapel_id: text("mapel_id").notNull(),
+    nilai_akhir: integer("nilai_akhir"),
+    predikat: text("predikat"),
+    tp_capaian_id: text("tp_capaian_id"),
+    deskripsi: text("deskripsi"),
+    deskripsi_manual: integer("deskripsi_manual", { mode: "boolean" }).notNull().default(false),
+    diisi_oleh: text("diisi_oleh").notNull(),
+    final: integer("final", { mode: "boolean" }).notNull().default(false),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("nilai_akhir_unique").on(t.period_id, t.siswa_id, t.mapel_id),
+    index("nilai_akhir_period_rombel_idx").on(t.period_id, t.rombel_id),
+    index("nilai_akhir_siswa_period_idx").on(t.siswa_id, t.period_id),
   ],
 );

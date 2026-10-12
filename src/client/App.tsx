@@ -51,6 +51,9 @@ import { PelanggaranPage } from "@/pages/kesiswaan/PelanggaranPage";
 import { TindakLanjutPage } from "@/pages/kesiswaan/TindakLanjutPage";
 import { RekapKesiswaanPage } from "@/pages/kesiswaan/RekapKesiswaanPage";
 import { PrestasiPage } from "@/pages/kesiswaan/PrestasiPage";
+import { PengaturanRaportPage } from "@/pages/settings/PengaturanRaportPage";
+import { TujuanPembelajaranPage } from "@/pages/akademik/TujuanPembelajaranPage";
+import { InputNilaiPage } from "@/pages/akademik/InputNilaiPage";
 
 function ThemeBootstrap() {
   useApplyTheme();
@@ -132,6 +135,15 @@ export function App() {
             </Route>
             <Route element={<RequirePermission module="prestasi" action="lihat" />}>
               <Route path="/kesiswaan/prestasi" element={<PrestasiPage />} />
+            </Route>
+            <Route element={<RequirePermission module="pengaturan_raport" action="lihat" />}>
+              <Route path="/pengaturan/raport" element={<PengaturanRaportPage />} />
+            </Route>
+            <Route element={<RequirePermission module="tujuan_pembelajaran" action="lihat" />}>
+              <Route path="/akademik/tujuan-pembelajaran" element={<TujuanPembelajaranPage />} />
+            </Route>
+            <Route element={<RequirePermission module="input_nilai" action="lihat" />}>
+              <Route path="/akademik/input-nilai" element={<InputNilaiPage />} />
             </Route>
             <Route element={<RequirePermission module="pengelolaan_buku_tamu" action="lihat" />}>
               <Route path="/buku-tamu" element={<BukuTamuPage />} />

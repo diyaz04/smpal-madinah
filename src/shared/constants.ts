@@ -475,3 +475,26 @@ export const PRESTASI_JENIS_LABELS: Record<PrestasiJenis, string> = {
 
 /** Maksimal prestasi yang ditampilkan di raport (getPrestasiRaport, dipakai Tahap 6). */
 export const MAKS_PRESTASI_RAPORT = 3;
+
+// ---------------------------------------------------------------------------
+// Tahap 6 — Raport
+// ---------------------------------------------------------------------------
+
+export const NILAI_UJIAN_JENIS_LIST = ["STS", "SAS"] as const;
+export type NilaiUjianJenis = (typeof NILAI_UJIAN_JENIS_LIST)[number];
+export const NILAI_UJIAN_JENIS_LABELS: Record<NilaiUjianJenis, string> = {
+  STS: "Sumatif Tengah Semester",
+  SAS: "Sumatif Akhir Semester",
+};
+
+export const DEFAULT_FASE = "D";
+
+/** Default bobot (total wajib 100), pembulatan, dan tampilan raport — bisa diubah Admin/Kurikulum per periode. */
+export const DEFAULT_RAPORT_PENGATURAN = {
+  bobotTp: 50,
+  bobotSts: 25,
+  bobotSas: 25,
+  pembulatanDesimal: 0,
+  tampilkanPeringkat: false,
+  fasePerTingkat: { VII: DEFAULT_FASE, VIII: DEFAULT_FASE, IX: DEFAULT_FASE } as Record<Tingkat, string>,
+};

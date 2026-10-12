@@ -36,6 +36,11 @@ import {
   ListChecks,
   HeartHandshake,
   BarChart3,
+  SlidersHorizontal,
+  Target,
+  PenLine,
+  Rows3,
+  Printer,
   CircleHelp,
   type LucideIcon,
 } from "lucide-react";
@@ -78,6 +83,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ListChecks,
   HeartHandshake,
   BarChart3,
+  SlidersHorizontal,
+  Target,
+  PenLine,
+  Rows3,
+  Printer,
 };
 
 export function getModuleIcon(name: string): LucideIcon {
